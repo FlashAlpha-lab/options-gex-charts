@@ -4,15 +4,43 @@
   "description": "Embeddable candlestick chart with options gamma exposure (GEX) levels: call wall, put wall, gamma flip, max pain. Built on TradingView lightweight-charts, data from the FlashAlpha API.",
   "main": "src/flashalpha-chart-core.js",
   "browser": "src/flashalpha-chart-core.js",
-  "files": ["src/", "embed.js", "examples/", "README.md", "LICENSE"],
+  "files": [
+    "src/",
+    "embed.js",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ],
   "peerDependencies": {
     "lightweight-charts": "^5.0.0"
   },
-  "keywords": ["options", "gamma-exposure", "gex", "dealer-positioning", "call-wall", "put-wall", "gamma-flip", "max-pain",
-    "candlestick-chart", "lightweight-charts", "embeddable-chart", "stock-chart", "trading"],
-  "homepage": "https://github.com/FlashAlpha-lab/options-gex-charts#readme",
-  "repository": { "type": "git", "url": "git+https://github.com/FlashAlpha-lab/options-gex-charts.git" },
-  "bugs": { "url": "https://github.com/FlashAlpha-lab/options-gex-charts/issues" },
+  "keywords": [
+    "options",
+    "gamma-exposure",
+    "gex",
+    "dealer-positioning",
+    "call-wall",
+    "put-wall",
+    "gamma-flip",
+    "max-pain",
+    "candlestick-chart",
+    "lightweight-charts",
+    "embeddable-chart",
+    "stock-chart",
+    "trading",
+    "gex-chart",
+    "options-chart",
+    "options-analytics",
+    "charting-library"
+  ],
+  "homepage": "https://flashalpha-lab.github.io/options-gex-charts/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlashAlpha-lab/options-gex-charts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/FlashAlpha-lab/options-gex-charts/issues"
+  },
   "author": "FlashAlpha",
   "license": "MIT"
 }

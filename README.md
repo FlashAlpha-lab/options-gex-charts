@@ -1,13 +1,33 @@
-# Options GEX Charts
+# Options GEX Charts: gamma exposure levels on a JavaScript candlestick chart
 
-An embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price: call wall, put
-wall, gamma flip, and max pain. It renders with [TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts)
-and reads data from the [FlashAlpha](https://flashalpha.com) options analytics API or from your own backend.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Built on Lightweight Charts 5](https://img.shields.io/badge/Lightweight%20Charts-5.0-26a69a.svg)](https://github.com/tradingview/lightweight-charts)
 
-- One `<div>` and one `<script>`. No build step and no framework.
-- Levels share the time axis with the price, so you can see where the price traded against each level.
-- Works on phones: the toolbar and legend shrink below 560 px.
-- MIT licensed.
+An open-source, embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price:
+call wall, put wall, gamma flip, and max pain. It renders with
+[TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts) and reads data from the
+[FlashAlpha](https://flashalpha.com) options analytics API or from your own backend.
+
+![SPY 15-minute candlestick chart with call wall, put wall, and gamma flip levels, and the key levels as text below the chart](docs/screenshot.png)
+
+[Live demo](https://flashalpha-lab.github.io/options-gex-charts/) ·
+[Examples](examples) ·
+[How GEX is computed](https://github.com/FlashAlpha-lab/gex-explained) ·
+[FlashAlpha API](https://flashalpha.com)
+
+## Features
+
+- **Gamma exposure levels on the price:** call wall, put wall, gamma flip, and max pain, drawn per bar on the same time
+  axis as the candles, so you can see how the price traded against each level.
+- **Key levels as text:** spot, walls, flip, and max pain with their change since the previous session, readable by
+  people and search engines.
+- **Stock and index charts:** candlesticks and volume from 1-minute to weekly bars, regular or extended hours, on a US
+  Eastern time axis.
+- **Embeddable:** one `<div>` and one `<script>`. No build step and no framework. The chart fills its container.
+- **Your own data:** pass a `source` object to draw GEX levels from any backend.
+- **Plugins:** add your own layers, such as VWAP or custom levels, with `registerLayers`.
+- **Mobile layout:** the toolbar and legend shrink below 560 px.
+- **MIT licensed.**
 
 ## Project status
 
@@ -91,18 +111,15 @@ If your page adds charts after it loads, for example in a single-page app, call 
 
 To skip the optional layer bundle, add `data-layer-bundle="false"` to the `<script>` tag.
 
-## What the chart shows
+## Layers
 
-- Candlesticks and volume, with zoom, scroll, and a crosshair legend.
-- Resolutions from 1 minute to 1 week, and ranges from 1 day to 1 year.
-- Regular session or extended hours, on a US Eastern time axis.
-- The `levels` layer: call wall, put wall, and gamma flip. The flip is gray when the data source marks it as not
-  certified.
-- The `maxpain` layer: max pain.
-- Key levels as text under the chart: spot, walls, flip, and max pain, each with its change since the previous session.
-- Muted "spot" candles after the last stored bar, when the data source sends spot prices for those minutes.
+| Layer ID | What it draws |
+|---|---|
+| `levels` | Call wall, put wall, and gamma flip. The flip is gray when the data source marks it as not certified. |
+| `maxpain` | Max pain. |
 
-The chart refreshes every 60 seconds while the page is visible and keeps your zoom.
+After the last stored bar, the chart draws muted "spot" candles when the data source sends spot prices for those
+minutes. The chart refreshes every 60 seconds while the page is visible and keeps your zoom.
 
 ## Options
 

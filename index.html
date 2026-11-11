@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options GEX Charts: gamma exposure levels on a JavaScript candlestick chart</title>
+<meta name="description" content="Open-source embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels: call wall, put wall, gamma flip, and max pain. Built on TradingView Lightweight Charts, data from the FlashAlpha API or your own backend.">
+<link rel="canonical" href="https://flashalpha-lab.github.io/options-gex-charts/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Options GEX Charts: gamma exposure levels on a candlestick chart">
+<meta property="og:description" content="Embeddable JavaScript chart with call wall, put wall, gamma flip, and max pain levels. MIT licensed.">
+<meta property="og:url" content="https://flashalpha-lab.github.io/options-gex-charts/">
+<meta property="og:image" content="https://flashalpha-lab.github.io/options-gex-charts/docs/screenshot.png">
+<meta name="twitter:card" content="summary_large_image">
+<script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="src/flashalpha-chart-core.js"></script>
+<style>
+  body { margin: 0; background: #0f1115; color: #d6d9e0; font: 16px/1.6 system-ui, -apple-system, Segoe UI, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 8px; }
+  h2 { font-size: 19px; font-weight: 600; margin: 32px 0 8px; }
+  p, li { color: #b9bec9; }
+  a { color: #4f8cff; }
+  #chart { height: 460px; margin: 16px 0 8px; border: 1px solid #262a33; border-radius: 8px; overflow: hidden; }
+  code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
+  pre { background: #161a22; border: 1px solid #262a33; border-radius: 8px; padding: 12px; overflow-x: auto; }
+  .note { font-size: 14px; color: #8a909c; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Options GEX Charts</h1>
+  <p>An open-source JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price: call wall,
+    put wall, gamma flip, and max pain. It renders with TradingView Lightweight Charts and reads data from the
+    <a href="https://flashalpha.com">FlashAlpha</a> options analytics API or from your own backend.</p>
+
+  <div id="chart"></div>
+  <p class="note">Demo with generated data. Drag to scroll, use the wheel to zoom, and open the Layers menu to turn levels on or off.</p>
+
+  <h2>Add it to your page</h2>
+<pre><code>&lt;script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"&gt;&lt;/script&gt;
+&lt;script src="flashalpha-chart-core.js"&gt;&lt;/script&gt;
+&lt;div id="chart" style="height: 480px"&gt;&lt;/div&gt;
+&lt;script&gt;
+  FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'SPX', resolution: '5m', source: mySource });
+&lt;/script&gt;</code></pre>
+
+  <h2>What the chart shows</h2>
+  <ul>
+    <li>Candlesticks and volume from 1-minute to weekly bars, on a US Eastern time axis.</li>
+    <li>Call wall and put wall: the strikes with the largest call and put gamma exposure.</li>
+    <li>Gamma flip: the price where net dealer gamma changes sign.</li>
+    <li>Max pain, and the key levels as text with their change since the previous session.</li>
+    <li>A plugin API for your own layers, and a compact layout for phones.</li>
+  </ul>
+
+  <p>Source code, options, and the data format: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
+    How GEX is computed: <a href="https://github.com/FlashAlpha-lab/gex-explained">gex-explained</a>.</p>
+  <p class="note">The levels are model estimates from open interest, not observed dealer positions, and not financial advice.
+    MIT licensed. TradingView Lightweight Charts™ is licensed under the Apache License 2.0.</p>
+</main>
+<script>
+  const price = t => 5000 + 40 * Math.sin(t / 3e8) + 12 * Math.sin(t / 2e7) + 3 * Math.sin(t / 1.3e6);
+  function walk(fromIso, toIso, stepSec) {
+    const out = [], end = Date.parse(toIso), ms = stepSec * 1000;
+    for (let t = Math.ceil(Date.parse(fromIso) / ms) * ms; t < end; t += ms) {
+      const d = new Date(t), mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+      if (stepSec < 86400 && (d.getUTCDay() % 6 === 0 || mins < 14 * 60 + 30 || mins >= 21 * 60)) continue;
+      const o = price(t), c = price(t + ms - 1);
+      out.push({ ts: d.toISOString(), open: o, high: Math.max(o, c) + 1, low: Math.min(o, c) - 1, close: c, volume: 1000 + (t / ms % 7) * 500 });
+    }
+    return out;
+  }
+  const step = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400, '1w': 604800 };
+  const source = {
+    symbols: () => [{ symbol: 'DEMO', last_bar: new Date().toISOString() }],
+    bars: (symbol, res, from, to) => ({ bars: walk(from, to, step[res]).map(b => Object.assign(b, { source: 'demo' })) }),
+    charts: (symbol, res, from, to, { layers }) => ({
+      exposure: layers.includes('exposure') ? walk(from, to, step[res]).map(b => ({
+        ts: b.ts,
+        spot: { last: b.close },
+        call_wall: Math.round(b.close / 25) * 25 + 50, put_wall: Math.round(b.close / 25) * 25 - 50,
+        max_pain: Math.round(b.close / 50) * 50,
+        gamma_flip: { last: Math.round(b.close / 10) * 10 - 20, status: 'available' },
+      })) : [],
+    }),
+  };
+  FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain'], source, refresh: 0, symbolButtons: false });
+</script>
+</body>
+</html>
