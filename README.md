@@ -29,13 +29,6 @@ call wall, put wall, gamma flip, and max pain. It renders with
 - **Mobile layout:** the toolbar and legend shrink below 560 px.
 - **MIT licensed.**
 
-## Project status
-
-The chart code in this repository is ready to use with your own data source. The hosted FlashAlpha chart API and the
-one-line embed aren't public yet. Until they are, the examples that use FlashAlpha data (`basic.html`, `embed.html`)
-show a "Chart data unavailable" message. [`examples/custom-source.html`](examples/custom-source.html) runs offline with
-generated data.
-
 ## Quick start with your own data
 
 1. Load Lightweight Charts 5 and the chart core:
@@ -68,7 +61,7 @@ For a complete page, open [`examples/custom-source.html`](examples/custom-source
 
 ## Use FlashAlpha data
 
-When the hosted chart API is public, you pass a FlashAlpha chart key instead of a `source` object:
+To use FlashAlpha data, pass a FlashAlpha chart key instead of a `source` object:
 
 ```js
 FlashAlphaChart.mount(el, {
