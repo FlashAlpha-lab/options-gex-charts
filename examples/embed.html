@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options GEX chart: embed</title>
+<style>body { margin: 0; padding: 16px; background: #0f1115; color: #d6d9e0; font: 14px system-ui, sans-serif; }</style>
+</head>
+<body>
+<h1>SPX with gamma exposure levels</h1>
+<div data-flashalpha-chart data-symbol="SPX" data-key="YOUR_API_KEY" data-resolution="5m" data-layers="levels,maxpain" style="height: 480px"></div>
+
+<h2>SPY daily, no toolbar</h2>
+<div data-flashalpha-chart data-symbol="SPY" data-key="YOUR_API_KEY" data-controls="false" style="height: 320px"></div>
+
+<!-- The hosted embed is not public yet. To try this page against your own chart API, add
+     data-base="https://your-api-host" to each div. -->
+<script async src="https://charts.flashalpha.com/embed.js"></script>
+</body>
+</html>

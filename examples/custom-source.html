@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options GEX chart: your own data</title>
+<script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="../src/flashalpha-chart-core.js"></script>
+<style>html, body { margin: 0; height: 100%; background: #0f1115; } #chart { height: 100vh; }</style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+  // Synthetic data, no key and no network: a price that is a function of time, with levels around it.
+  // Replace with calls to your backend.
+  const price = t => 5000 + 40 * Math.sin(t / 3e8) + 12 * Math.sin(t / 2e7) + 3 * Math.sin(t / 1.3e6);
+  function walk(fromIso, toIso, stepSec) {
+    const out = [], end = Date.parse(toIso), ms = stepSec * 1000;
+    for (let t = Math.ceil(Date.parse(fromIso) / ms) * ms; t < end; t += ms) {
+      const d = new Date(t), mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+      if (stepSec < 86400 && (d.getUTCDay() % 6 === 0 || mins < 14 * 60 + 30 || mins >= 21 * 60)) continue;   // roughly RTH in winter
+      const o = price(t), c = price(t + ms - 1);
+      out.push({ ts: d.toISOString(), open: o, high: Math.max(o, c) + 1, low: Math.min(o, c) - 1, close: c, volume: 1000 + (t / ms % 7) * 500 });
+    }
+    return out;
+  }
+  const step = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400, '1w': 604800 };
+  const source = {
+    symbols: () => [{ symbol: 'DEMO', last_bar: new Date().toISOString() }],
+    bars: (symbol, res, from, to) => ({ bars: walk(from, to, step[res]).map(b => Object.assign(b, { source: 'demo' })) }),
+    charts: (symbol, res, from, to, { layers }) => ({
+      exposure: layers.includes('exposure') ? walk(from, to, step[res]).map(b => ({
+        ts: b.ts,
+        call_wall: Math.round(b.close / 25) * 25 + 50, put_wall: Math.round(b.close / 25) * 25 - 50,
+        max_pain: Math.round(b.close / 50) * 50,
+        gamma_flip: { last: Math.round(b.close / 10) * 10 - 20, status: 'available' },
+      })) : [],
+    }),
+  };
+  FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain'], source, refresh: 0 });
+</script>
+</body>
+</html>

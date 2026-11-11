@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Options GEX chart: basic</title>
+<script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="../src/flashalpha-chart-core.js"></script>
+<style>html, body { margin: 0; height: 100%; background: #0f1115; } #chart { height: 100vh; }</style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+  const chart = FlashAlphaChart.mount(document.getElementById('chart'), {
+    baseUrl: 'https://charts.flashalpha.com',   // hosted chart API, not public yet
+    apiKey: 'YOUR_API_KEY',                      // your FlashAlpha chart key
+    symbol: 'SPX', resolution: '5m',
+    layers: ['levels', 'maxpain'],
+  });
+</script>
+</body>
+</html>
