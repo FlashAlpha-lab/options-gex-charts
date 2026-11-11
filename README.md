@@ -211,7 +211,15 @@ A plugin has these fields:
 - `defaults` (optional): layer IDs that are on by default.
 - `apiLayers(ctx)` (optional): extra API layers to request.
 - `attach(ctx)`: runs once per chart and returns a handle with any of `ready()`, `draw(response)`, `clear()`,
-  `legend(time, y)`, `crosshair(time, y)`, and `destroy()`.
+  `legend(time, y)`, `crosshair(time, y)`, and `destroy()`. The handle can also have:
+  - `legendLevels(row, parts)`: add text to the legend's levels line (`flip`, `call wall`, `put wall`, `max pain`)
+    by inserting into or appending to `parts`.
+  - `keyLevels(last, prev, items)`: add items to the key levels text under the chart by inserting into or appending
+    to `items` (HTML strings: spot, call wall, put wall, gamma flip, max pain).
+  - `methods`: an object of functions added to the chart object that `mount` returns, for example `setMyOption(x)`.
+
+`ctx.setQuery({...})` adds parameters to the chart API request and reloads; called inside `attach` it only sets the
+first request. A series that a plugin adds in a new pane under the price gets a fifth of the chart's height.
 
 The header comment in [`src/flashalpha-chart-core.js`](src/flashalpha-chart-core.js) describes `ctx` and the handle
 in full.

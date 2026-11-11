@@ -36,10 +36,18 @@
  *     apiLayers(ctx) -> ['strikes', ...],    // the API layers to request for the enabled ids (optional)
  *     attach(ctx) -> handle,                 // once per chart, before the candle series exists: series added here
  *   }                                        //   are drawn behind the candles
- *   handle: { ready(), draw(response), clear(), legend(time, y) -> [lines], crosshair(time, y), destroy() }, all optional.
+ *   handle: { ready(), draw(response), clear(), legend(time, y) -> [lines], crosshair(time, y), destroy(),
+ *             legendLevels(row, parts), keyLevels(last, prev, items), methods }, all optional.
  *   ready() runs once the candles exist; draw(response) after every load with the charts() response; clear() when a load
- *   failed. ctx: LW, chart, root, options, colors, candles, bars, symbol, resolution, intraday(), on(id), level(color, title),
- *   addControl(element), query, setQuery({...}) (merged into the charts() request, then reloads), note(text), util.
+ *   failed. legendLevels(row, parts): parts of the legend's levels line for the exposure row under the crosshair
+ *   (['flip …', 'call wall …', 'put wall …', 'max pain …' when on]), joined with ' · '; insert or append in place.
+ *   keyLevels(last, prev, items): the key levels text for the latest exposure row and the previous session's last row;
+ *   items are HTML strings [spot, call wall, put wall, gamma flip, max pain] ('' when absent); insert or append in place
+ *   (escape API text with util.esc). methods: {name: function} added to the object mount() returns (core names win).
+ *   Panes a plugin adds under the price pane each get a fifth of the chart's height (at least 60 px).
+ *   ctx: LW, chart, root, options, colors, candles, bars, symbol, resolution, intraday(), on(id), level(color, title),
+ *   addControl(element), query, setQuery({...}) (merged into the charts() request, then reloads; called from attach()
+ *   it only sets the first request), note(text), util.
  */
 (function (global) {
   'use strict';
@@ -218,7 +226,7 @@
       pointMarkersRadius: 1.5, priceLineVisible: true, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1, priceLineColor: color,
       lastValueVisible: true, crosshairMarkerVisible: false });
 
-    let candles = null, bars = [], byTime = new Map(), gexByTime = new Map(), notes = [];
+    let candles = null, bars = [], byTime = new Map(), gexByTime = new Map(), notes = [], started = false;
     const ctx = {
       LW, chart, root, options: o, colors: COLORS, level, intraday, on,
       get candles() { return candles; },
@@ -226,7 +234,7 @@
       get symbol() { return state.symbol; },
       get resolution() { return state.res; },
       get query() { return Object.assign({}, query); },
-      setQuery(x) { Object.assign(query, x); return load(); },
+      setQuery(x) { Object.assign(query, x); return started ? load() : Promise.resolve(); },
       /** Puts a control into the toolbar before the status text; false when the toolbar is hidden. */
       addControl(el) { const st = $('.fac-status'); if (!st) return false; st.before(el); return true; },
       note(text) { notes.push(text); },
@@ -252,10 +260,17 @@
       maxPain: level(COLORS.maxpain, 'max pain'),
     };
     call('ready');
+    // Plugin panes under the price take a fifth of the chart each; re-applied on every resize because the container may
+    // still be 0 px tall when a pane is added.
+    const sizePanes = () => {
+      const panes = chart.panes(), h = $('.fac-body').clientHeight;
+      if (h > 0) for (let i = 1; i < panes.length; i++) panes[i].setHeight(Math.max(60, Math.round(h * 0.2)));
+    };
     // Phones: resolutions, ranges and Layers only, and a one-line legend.
     const resizeObserver = new ResizeObserver(() => {
       const narrow = root.clientWidth < 560;
       if (narrow !== root.classList.contains('fac-narrow')) { root.classList.toggle('fac-narrow', narrow); renderLegend(null, null); }
+      sizePanes();
     });
     resizeObserver.observe(root);
 
@@ -273,9 +288,13 @@
         + `<span class="k">O</span> ${num(b.open)}<span class="k">H</span> ${num(b.high)}<span class="k">L</span> ${num(b.low)}`
         + (b.volume != null ? `<span class="k">Vol</span> ${big(b.volume)}` : '') + `<span class="k">${esc(b.source)}${intraday() ? ' · ' + sessionOf(b.time) : ''}</span>` : '';
       const lines = [];
-      if (g) lines.push(`flip ${num(g.gamma_flip && g.gamma_flip.last)} (${(g.gamma_flip && g.gamma_flip.status) || '—'})`
-        + ` · call wall ${num(g.call_wall)} · put wall ${num(g.put_wall)}`
-        + (on('maxpain') && g.max_pain != null ? ` · max pain ${num(g.max_pain)}` : ''));
+      if (g) {
+        const parts = [`flip ${num(g.gamma_flip && g.gamma_flip.last)} (${(g.gamma_flip && g.gamma_flip.status) || '—'})`,
+          `call wall ${num(g.call_wall)}`, `put wall ${num(g.put_wall)}`];
+        if (on('maxpain') && g.max_pain != null) parts.push(`max pain ${num(g.max_pain)}`);
+        call('legendLevels', g, parts);
+        lines.push(parts.filter(Boolean).join(' · '));
+      }
       const extra = time != null ? call('legend', time, y).flat().filter(Boolean) : [];
       lines.push(...extra);
       if (!g && notes.length) lines.push(notes.join(' · '));
@@ -417,6 +436,7 @@
       drawExposure(layers.includes('exposure') ? c.exposure || [] : []);
       renderKeyLevels(intraday() ? c.exposure || [] : (k && k.exposure) || []);
       call('draw', c);
+      requestAnimationFrame(sizePanes);                     // a pane added in this load is laid out on the next frame
       if (!intraday() && state.picked && ['levels', 'maxpain'].some(on)) notes.push('GEX levels: intraday resolutions only');
       else if (layers.includes('exposure') && !gated.includes('exposure') && !(c.exposure || []).length) notes.push('GEX: no rows in this window (sampled during RTH)');
       restoreView(view);
@@ -476,14 +496,16 @@
       const item = (label, v, p, cls = '') => v == null ? ''
         : `<span><span class="k">${label}</span> <span class="${cls}">${num(v)}</span>${ch(v, p)}</span>`;
       const flip = last.gamma_flip || {}, pflip = (prev && prev.gamma_flip) || {};
-      keys.innerHTML = [
+      const items = [
         item('Spot', last.spot && last.spot.last, prev && prev.spot && prev.spot.last),
         item('Call wall', last.call_wall, prev && prev.call_wall, 'up'),
         item('Put wall', last.put_wall, prev && prev.put_wall, 'dn'),
         item(flip.status === 'available' || flip.last == null ? 'Gamma flip' : 'Gamma flip (unverified)', flip.last, pflip.last),
         on('maxpain') ? item('Max pain', last.max_pain, prev && prev.max_pain) : '',
-        `<span class="k">${esc(fmtTime.format(new Date(etTime(last.ts) * 1000)))} ET${prev ? ' · change vs previous session' : ''}</span>`,
-      ].filter(Boolean).join('');
+      ];
+      call('keyLevels', last, prev, items);
+      items.push(`<span class="k">${esc(fmtTime.format(new Date(etTime(last.ts) * 1000)))} ET${prev ? ' · change vs previous session' : ''}</span>`);
+      keys.innerHTML = items.filter(Boolean).join('');
     }
 
     const api = {
@@ -506,6 +528,8 @@
       },
       get chart() { return chart; },
     };
+    for (const { h } of handles)
+      for (const [name, fn] of Object.entries(h.methods || {})) if (!(name in api) && typeof fn === 'function') api[name] = fn;
 
     // Auto-refresh: every `refresh` seconds while the page is visible (0 = off).
     // Skipped while a load is running, so a refresh never replaces a load the user started.
@@ -518,6 +542,7 @@
       if (!state.symbol) state.symbol = (state.symbols.find(x => x.last_bar) || state.symbols[0] || {}).symbol;
       if (state.symbol && !state.symbols.some(x => x.symbol === state.symbol)) state.symbols.push({ symbol: state.symbol });
       renderControls();
+      started = true;
       await load();
     })();
     return api;
