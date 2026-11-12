@@ -114,6 +114,18 @@ To skip the optional layer bundle, add `data-layer-bundle="false"` to the `<scri
 After the last stored bar, the chart draws muted "spot" candles when the data source sends spot prices for those
 minutes. The chart refreshes every 60 seconds while the page is visible and keeps your zoom.
 
+### Pro layers
+
+With a FlashAlpha chart key, the chart adds more layers from the FlashAlpha API, depending on your plan.
+
+![Strike heatmap: net GEX per strike behind the candles](docs/gallery/heatmap.png)
+
+![GEX profile: net GEX per strike at the right edge of the chart](docs/gallery/gex-profile.png)
+
+![Net GEX histogram in a pane under the price](docs/gallery/net-gex-pane.png)
+
+For all of them, see the [live demo](https://flashalpha-lab.github.io/options-gex-charts/).
+
 ## Options
 
 `FlashAlphaChart.mount(element, options)` accepts these options:
@@ -134,6 +146,7 @@ minutes. The chart refreshes every 60 seconds while the page is visible and keep
 | `baseUrl` | Same origin | Chart API root URL. |
 | `refresh` | `60` | Seconds between refreshes. `0` turns refresh off. |
 | `background` | `#0f1115` | Background color. You can also set the CSS variable `--fac-bg`. |
+| `brand` | None | `{ logo, href, name }`: shows your logo, linked to `href`, at the bottom left of the price pane instead of the TradingView logo, and a "Charts by TradingView" link under the chart. |
 | `lightweightCharts` | `window.LightweightCharts` | The Lightweight Charts module, if you import it instead of loading the script. |
 
 `mount` returns an object with these members: `setSymbol(symbol)`, `setResolution(resolution)`, `setRange(days)`,
@@ -270,6 +283,9 @@ The chart keeps the TradingView attribution logo, which is the Lightweight Chart
 (`layout.attributionLogo: true`). The logo meets the license requirement to link to tradingview.com. If you turn the
 logo off, link to https://www.tradingview.com/ elsewhere on your page. If you bundle Lightweight Charts with your code,
 include its LICENSE and NOTICE files.
+
+The `brand` option turns the TradingView logo off and adds a "Charts by TradingView" link to https://www.tradingview.com/
+under the chart instead. Keep that link if you change the chart's markup.
 
 ## Related projects
 

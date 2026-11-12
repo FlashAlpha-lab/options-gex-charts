@@ -25,6 +25,10 @@
   code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
   pre { background: #161a22; border: 1px solid #262a33; border-radius: 8px; padding: 12px; overflow-x: auto; }
   .note { font-size: 14px; color: #8a909c; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 16px 0; }
+  .gallery figure { margin: 0; }
+  .gallery img { display: block; width: 100%; height: auto; border: 1px solid #262a33; border-radius: 8px; }
+  .gallery figcaption { margin-top: 6px; font-size: 14px; color: #8a909c; }
 </style>
 </head>
 <body>
@@ -35,7 +39,9 @@
     <a href="https://flashalpha.com">FlashAlpha</a> options analytics API or from your own backend.</p>
 
   <div id="chart"></div>
-  <p class="note">Demo with generated data. Drag to scroll, use the wheel to zoom, and open the Layers menu to turn levels on or off.</p>
+  <p class="note">Demo with generated data. Drag to scroll, use the wheel to zoom, and open the Layers menu to turn levels on or off.
+    The muted candles at the right edge are built from spot prices after the last stored bar. The VWAP line is a layer plugin
+    defined in this page.</p>
 
   <h2>Add it to your page</h2>
 <pre><code>&lt;script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"&gt;&lt;/script&gt;
@@ -54,10 +60,28 @@
     <li>A plugin API for your own layers, and a compact layout for phones.</li>
   </ul>
 
+  <h2>More layers with a FlashAlpha plan</h2>
+  <p>With a FlashAlpha chart key, the chart adds layers from the FlashAlpha API.</p>
+  <div class="gallery">
+    <figure><img src="docs/gallery/heatmap.png" alt="Net gamma exposure per strike as a heatmap behind the candles" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Strike heatmap: net GEX per strike behind the candles, green for long gamma and red for short.</figcaption></figure>
+    <figure><img src="docs/gallery/gex-profile.png" alt="Net gamma exposure per strike as bars at the right edge of the chart" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>GEX profile: net GEX per strike at the right edge, for the latest snapshot or the bar under the crosshair.</figcaption></figure>
+    <figure><img src="docs/gallery/net-gex-pane.png" alt="Net gamma exposure in a pane under the price" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Net GEX pane: a net GEX histogram in its own pane under the price.</figcaption></figure>
+    <figure><img src="docs/gallery/zero-dte.png" alt="Chart with the 0DTE scope and the 0DTE magnet level" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>0DTE: levels from same-day expiries only, with the 0DTE magnet.</figcaption></figure>
+    <figure><img src="docs/gallery/metrics.png" alt="Metric picker with an exposure metric drawn in its own pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Metrics: vanna, charm, delta exposure, IV, or another per-minute metric as a line in its own pane.</figcaption></figure>
+    <figure><img src="docs/gallery/demo.gif" alt="Animated walkthrough of the FlashAlpha chart layers" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>The layers turned on one by one.</figcaption></figure>
+  </div>
+
   <p>Source code, options, and the data format: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
     How GEX is computed: <a href="https://github.com/FlashAlpha-lab/gex-explained">gex-explained</a>.</p>
   <p class="note">The levels are model estimates from open interest, not observed dealer positions, and not financial advice.
-    MIT licensed. TradingView Lightweight Charts™ is licensed under the Apache License 2.0.</p>
+    MIT licensed. TradingView Lightweight Charts™ is licensed under the Apache License 2.0;
+    <a href="https://www.tradingview.com/">tradingview.com</a>.</p>
 </main>
 <script>
   const price = t => 5000 + 40 * Math.sin(t / 3e8) + 12 * Math.sin(t / 2e7) + 3 * Math.sin(t / 1.3e6);
@@ -72,20 +96,53 @@
     return out;
   }
   const step = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400, '1w': 604800 };
+  const SPOT_BUCKETS = 6;                 // the last buckets have no stored bar yet: the chart draws them from spot
+  const round = (v, k) => Math.round(v / k) * k;
   const source = {
     symbols: () => [{ symbol: 'DEMO', last_bar: new Date().toISOString() }],
-    bars: (symbol, res, from, to) => ({ bars: walk(from, to, step[res]).map(b => Object.assign(b, { source: 'demo' })) }),
+    bars: (symbol, res, from, to) => {
+      const bars = walk(from, to, step[res]).map(b => Object.assign(b, { source: 'demo' }));
+      return { bars: step[res] < 86400 ? bars.slice(0, -SPOT_BUCKETS) : bars };
+    },
     charts: (symbol, res, from, to, { layers }) => ({
-      exposure: layers.includes('exposure') ? walk(from, to, step[res]).map(b => ({
-        ts: b.ts,
-        spot: { last: b.close },
-        call_wall: Math.round(b.close / 25) * 25 + 50, put_wall: Math.round(b.close / 25) * 25 - 50,
-        max_pain: Math.round(b.close / 50) * 50,
-        gamma_flip: { last: Math.round(b.close / 10) * 10 - 20, status: 'available' },
-      })) : [],
+      exposure: layers.includes('exposure') ? walk(from, to, step[res]).map((b, i) => {
+        const mins = new Date(b.ts).getUTCHours() * 60 + new Date(b.ts).getUTCMinutes();
+        return {
+          ts: b.ts,
+          spot: { first: b.open, min: b.low, max: b.high, last: b.close },
+          call_wall: round(b.close, 25) + 50, put_wall: round(b.close, 25) - 50,
+          max_pain: round(b.close, 50),
+          // The first half hour of each session: the flip is not certified yet and is drawn gray.
+          gamma_flip: { last: round(b.close, 10) - 20, status: mins < 15 * 60 ? 'unverified' : 'available' },
+        };
+      }) : [],
     }),
   };
-  FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain'], source, refresh: 0, symbolButtons: false });
+  // A layer plugin defined by the page: session VWAP.
+  FlashAlphaChart.registerLayers({
+    layers: [['vwap', 'VWAP (plugin example)']],
+    defaults: ['vwap'],
+    attach(ctx) {
+      let line;
+      return {
+        ready() { line = ctx.chart.addSeries(ctx.LW.LineSeries, { color: '#4fc3f7', lineWidth: 1, title: 'vwap', priceLineVisible: false }); },
+        draw() {
+          let pv = 0, v = 0, day = null;
+          line.setData(!ctx.on('vwap') || !ctx.intraday() ? [] : ctx.bars.map(b => {
+            if (ctx.util.dayOf(b.time) !== day) { day = ctx.util.dayOf(b.time); pv = 0; v = 0; }
+            const vol = b.volume || 0, typical = (b.high + b.low + b.close) / 3;
+            pv += typical * vol; v += vol;
+            return v ? { time: b.time, value: pv / v } : { time: b.time };
+          }));
+        },
+        clear() { line.setData([]); },
+      };
+    },
+  });
+  FlashAlphaChart.mount(document.getElementById('chart'), {
+    symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain', 'vwap'], source, refresh: 0, symbolButtons: false,
+    brand: { logo: 'docs/flashalpha-logo.png', href: 'https://flashalpha.com', name: 'FlashAlpha' },
+  });
 </script>
 </body>
 </html>

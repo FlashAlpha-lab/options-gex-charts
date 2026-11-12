@@ -18,6 +18,8 @@
  * When there is nothing to draw (unknown symbol, no bars, the API unreachable) a message covers the chart and the container
  * gets a bubbling 'flashalpha:nodata' CustomEvent, detail {symbol, error}, e.g. to hide the section. An unknown symbol is
  * not polled again. Below 560 px wide the toolbar and the legend are compact (one line until the crosshair is on the chart).
+ * options.brand {logo, href, name}: the logo (24 px high, a link to href) at the bottom left of the price pane instead of the
+ * TradingView logo, and a "Charts by TradingView" text link under the chart (the Lightweight Charts license asks for one).
  *
  * The chart fills its container and follows its size. Data comes from a source object, so the same widget can read the
  * FlashAlpha chart API (default: FlashAlphaChart.chartEngineSource(baseUrl, apiKey)) or any backend that returns the same shapes:
@@ -113,7 +115,13 @@
 .fac-keys .up { color: ${COLORS.up}; } .fac-keys .dn { color: ${COLORS.down}; }
 .fac-narrow .fac-keys { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .fac-narrow .fac-keys > span { flex: none; }
-.fac-narrow [data-g="session"], .fac-narrow .fac-status { display: none; }`;
+.fac-narrow [data-g="session"], .fac-narrow .fac-status { display: none; }
+.fac-brand { position: absolute; left: 10px; bottom: 38px; z-index: 3; display: block; height: 24px; opacity: 0.6; line-height: 0; }
+.fac-brand:hover { opacity: 1; }
+.fac-brand img { height: 24px; width: auto; }
+.fac-credit { padding: 0 10px 3px; text-align: right; font-size: 10px; }
+.fac-credit a { color: var(--fac-muted, #8a909c); text-decoration: none; }
+.fac-credit a:hover { text-decoration: underline; }`;
 
   function injectCss() {
     if (document.getElementById('fac-css')) return;
@@ -186,7 +194,7 @@
     const o = Object.assign({
       symbol: null, resolution: '5m', days: null, session: 'rth', layers: [...DEFAULT_LAYERS, ...pluginDefaults],
       controls: true, symbolButtons: true, exposure: true, source: null, baseUrl: '', apiKey: null, refresh: 60, background: null,
-      keyLevels: true,
+      keyLevels: true, brand: null,
     }, options || {});
     const source = o.source || chartEngineSource(o.baseUrl, o.apiKey);
     const layerList = [...CORE_LAYERS, ...plugins.flatMap(p => p.layers)];
@@ -204,15 +212,17 @@
         <div class="fac-group" data-g="res"></div><div class="fac-group" data-g="range"></div><div class="fac-group" data-g="session"></div>
         ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"></div></div>' : ''}
         <span class="fac-status"></span></div>` : ''}
-      <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div></div>
-      ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}`;
+      <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
+        ${o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="${esc(o.brand.name)}"></a>` : ''}</div>
+      ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
+      ${o.brand ? '<div class="fac-credit"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>' : ''}`;
     container.appendChild(root);
     const $ = sel => root.querySelector(sel);
     const status = text => { const s = $('.fac-status'); if (s) s.textContent = text; };
 
     const chart = LW.createChart($('.fac-canvas'), {
       autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: '#8a909c', panes: { separatorColor: '#262a33' } },
+      layout: { background: { color: 'transparent' }, textColor: '#8a909c', panes: { separatorColor: '#262a33' }, attributionLogo: !o.brand },
       grid: { vertLines: { color: '#1b1e25' }, horzLines: { color: '#1b1e25' } },
       crosshair: { mode: LW.CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#262a33' },
@@ -262,9 +272,14 @@
     call('ready');
     // Plugin panes under the price take a fifth of the chart each; re-applied on every resize because the container may
     // still be 0 px tall when a pane is added.
+    const brand = $('.fac-brand');
     const sizePanes = () => {
       const panes = chart.panes(), h = $('.fac-body').clientHeight;
       if (h > 0) for (let i = 1; i < panes.length; i++) panes[i].setHeight(Math.max(60, Math.round(h * 0.2)));
+      if (brand) requestAnimationFrame(() => {                // the brand logo sits at the bottom of the price pane
+        const ph = chart.panes()[0].getHeight();
+        if (ph > 0) { brand.style.top = (ph - 34) + 'px'; brand.style.bottom = 'auto'; }
+      });
     };
     // Phones: resolutions, ranges and Layers only, and a one-line legend.
     const resizeObserver = new ResizeObserver(() => {
