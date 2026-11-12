@@ -118,6 +118,12 @@ minutes. The chart refreshes every 60 seconds while the page is visible and keep
 
 With a FlashAlpha chart key, the chart adds more layers from the FlashAlpha API, depending on your plan.
 
+| Plan | Layers |
+|---|---|
+| Basic | Call wall, put wall, gamma flip, max pain, net GEX pane. |
+| Growth | Basic, plus the strike heatmap, GEX profile, 0DTE scope and 0DTE magnet, level events, expected move (1σ band), and metrics (vanna, charm, delta exposure, IV, 0DTE pin score, hedging estimates, and more). |
+| Alpha | Growth, plus the live open interest basis. |
+
 ![Strike heatmap: net GEX per strike behind the candles](docs/gallery/heatmap.png)
 
 ![GEX profile: net GEX per strike at the right edge of the chart](docs/gallery/gex-profile.png)

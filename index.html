@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Options GEX Charts: gamma exposure levels on a JavaScript candlestick chart</title>
-<meta name="description" content="Open-source embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels: call wall, put wall, gamma flip, and max pain. Built on TradingView Lightweight Charts, data from the FlashAlpha API or your own backend.">
+<meta name="description" content="Open-source embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels: call wall, put wall, gamma flip, and max pain. Live demo, a guide to reading each level, and the layers available with a FlashAlpha plan.">
+<link rel="icon" href="docs/flashalpha-logo.png">
 <link rel="canonical" href="https://flashalpha-lab.github.io/options-gex-charts/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Options GEX Charts: gamma exposure levels on a candlestick chart">
@@ -15,74 +16,311 @@
 <script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
 <script src="src/flashalpha-chart-core.js"></script>
 <style>
-  body { margin: 0; background: #0f1115; color: #d6d9e0; font: 16px/1.6 system-ui, -apple-system, Segoe UI, sans-serif; }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 26px; font-weight: 600; margin: 0 0 8px; }
-  h2 { font-size: 19px; font-weight: 600; margin: 32px 0 8px; }
-  p, li { color: #b9bec9; }
-  a { color: #4f8cff; }
-  #chart { height: 460px; margin: 16px 0 8px; border: 1px solid #262a33; border-radius: 8px; overflow: hidden; }
-  code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
-  pre { background: #161a22; border: 1px solid #262a33; border-radius: 8px; padding: 12px; overflow-x: auto; }
-  .note { font-size: 14px; color: #8a909c; }
-  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
-  .gallery figure { margin: 0; }
-  .gallery figure:first-child { grid-column: 1 / -1; }
-  .gallery img { display: block; width: 100%; height: auto; border: 1px solid #262a33; border-radius: 8px; }
-  .gallery figcaption { margin-top: 6px; font-size: 14px; color: #8a909c; }
+  :root {
+    --bg: #0f1115; --panel: #151922; --line: #262a33; --text: #d6d9e0; --soft: #b9bec9; --muted: #8a909c; --accent: #4f8cff;
+    --up: #26a69a; --down: #ef5350; --flip: #e0c040; --unverified: #6b7080; --maxpain: #b388ff;
+    --spot-up: #5f8f8a; --spot-down: #9a6463; --vwap: #4fc3f7;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow-x: hidden; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  section { padding: 48px 0 0; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 12px; }
+  h2 { font-size: 24px; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; }
+  h3 { font-size: 17px; line-height: 1.35; font-weight: 600; margin: 0 0 6px; }
+  p { margin: 0 0 12px; color: var(--soft); }
+  .lead { font-size: 18px; max-width: 720px; }
+  .intro { max-width: 760px; margin-bottom: 20px; }
+  .note { font-size: 14px; color: var(--muted); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; }
+  :not(pre) > code { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; margin: 0 0 12px;
+    line-height: 1.5; color: var(--text); }
+
+  /* Hero */
+  header { padding: 56px 0 8px; }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 8px; font-weight: 600; font-size: 15px;
+    border: 1px solid var(--line); color: var(--text); background: var(--panel); }
+  .btn:hover { text-decoration: none; border-color: #3a4050; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #3f7cf0; }
+
+  /* Live chart */
+  .chart-frame { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--bg);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+  #chart { height: 520px; }
+  .chart-note { margin-top: 10px; }
+
+  /* Guide cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .card-head h3 { margin: 0; }
+  .card p { font-size: 15px; margin: 0 0 6px; }
+  .card p:last-child { margin-bottom: 0; }
+  .where { font-size: 13px; color: var(--muted); }
+  .sw { flex: none; width: 28px; height: 14px; border-radius: 3px; }
+  .sw.level { height: 0; border-top: 3px dotted currentColor; border-radius: 0; }
+  .sw.pair { background: linear-gradient(90deg, var(--a) 50%, var(--b) 50%); }
+  .sw.text { width: 28px; height: 14px; border: 1px solid var(--line); background: var(--bg); position: relative; }
+  .sw.text::after { content: ""; position: absolute; left: 4px; right: 8px; top: 5px; height: 2px; background: var(--muted); box-shadow: 0 4px 0 var(--muted); }
+
+  /* Plan layers */
+  .layer { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 28px; align-items: center; padding: 28px 0;
+    border-top: 1px solid var(--line); }
+  .layer:first-of-type { border-top: 0; }
+  .layer img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  .layer p { font-size: 15px; }
+  .plan { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid var(--line); color: var(--muted); margin-bottom: 10px; }
+  .plan.basic { color: var(--up); border-color: rgba(38, 166, 154, 0.45); }
+  .plan.growth { color: var(--accent); border-color: rgba(79, 140, 255, 0.45); }
+  .plan.alpha { color: var(--maxpain); border-color: rgba(179, 136, 255, 0.45); }
+  .more { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 8px; }
+  .plans { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 8px; }
+  .plans th, .plans td { text-align: left; vertical-align: top; padding: 10px 12px; border-top: 1px solid var(--line); }
+  .plans th { color: var(--text); font-weight: 600; white-space: nowrap; width: 1%; }
+  .plans td { color: var(--soft); }
+
+  /* Data and options */
+  .facts { margin: 0; padding-left: 20px; color: var(--soft); }
+  .facts li { margin-bottom: 6px; }
+
+  footer { margin-top: 56px; padding: 24px 0 40px; border-top: 1px solid var(--line); }
+  footer p { font-size: 14px; color: var(--muted); }
+
+  @media (max-width: 760px) {
+    header { padding-top: 32px; }
+    section { padding-top: 40px; }
+    .lead { font-size: 17px; }
+    #chart { height: 440px; }
+    .layer { grid-template-columns: 1fr; gap: 14px; padding: 24px 0; }
+    .cards, .more { grid-template-columns: 1fr; }
+    .plans th { white-space: normal; }
+  }
 </style>
 </head>
 <body>
-<main>
+<header class="wrap">
+  <div class="eyebrow">Open source · MIT</div>
   <h1>Options GEX Charts</h1>
-  <p>An open-source JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price: call wall,
-    put wall, gamma flip, and max pain. It renders with TradingView Lightweight Charts and reads data from the
-    <a href="https://flashalpha.com">FlashAlpha</a> options analytics API or from your own backend.</p>
-
-  <div id="chart"></div>
-  <p class="note">Demo with generated data. Drag to scroll, use the wheel to zoom, and open the Layers menu to turn levels on or off.
-    The muted candles at the right edge are built from spot prices after the last stored bar. The VWAP line is a layer plugin
-    defined in this page.</p>
-
-  <h2>More layers with a FlashAlpha plan</h2>
-  <p>With a FlashAlpha chart key, the chart adds layers from the FlashAlpha API.</p>
-  <div class="gallery">
-    <figure><img src="docs/gallery/heatmap.png" alt="Net gamma exposure per strike as a heatmap behind the candles" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Strike heatmap: net GEX per strike behind the candles, green for long gamma and red for short.</figcaption></figure>
-    <figure><img src="docs/gallery/gex-profile.png" alt="Net gamma exposure per strike as bars at the right edge of the chart" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>GEX profile: net GEX per strike at the right edge, for the latest snapshot or the bar under the crosshair.</figcaption></figure>
-    <figure><img src="docs/gallery/net-gex-pane.png" alt="Net gamma exposure in a pane under the price" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Net GEX pane: a net GEX histogram in its own pane under the price.</figcaption></figure>
-    <figure><img src="docs/gallery/zero-dte.png" alt="Chart with the 0DTE scope and the 0DTE magnet level" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>0DTE: levels from same-day expiries only, with the 0DTE magnet.</figcaption></figure>
-    <figure><img src="docs/gallery/metrics.png" alt="Metric picker with an exposure metric drawn in its own pane" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Metrics: vanna, charm, delta exposure, IV, or another per-minute metric as a line in its own pane.</figcaption></figure>
+  <p class="lead">An embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price:
+    call wall, put wall, gamma flip, and max pain. Built on TradingView Lightweight Charts™, with data from the
+    FlashAlpha API or your own backend.</p>
+  <div class="actions">
+    <a class="btn" href="https://github.com/FlashAlpha-lab/options-gex-charts">View on GitHub</a>
+    <a class="btn primary" href="https://flashalpha.com">Get an API key</a>
   </div>
+</header>
 
-  <h2>Add it to your page</h2>
+<main>
+  <section class="wrap" id="demo" aria-label="Live demo">
+    <div class="chart-frame"><div id="chart"></div></div>
+    <p class="note chart-note">Live demo with generated data; the page makes no data requests. Drag to scroll, use the wheel or
+      pinch to zoom, and open the <b>Layers</b> menu to turn layers on or off.</p>
+  </section>
+
+  <section class="wrap" id="read">
+    <h2>How to read the chart</h2>
+    <p class="intro">Each element of the demo above, with the colour it uses on the chart. Levels are drawn per bar, as a row
+      of dots on the same time axis as the candles, so you can see where the price traded against each level and when the
+      level moved. The latest value is labelled on the price axis.</p>
+    <div class="cards">
+      <article class="card">
+        <div class="card-head"><span class="sw pair" style="--a: var(--up); --b: var(--down)"></span><h3>Candles and volume</h3></div>
+        <p>Price bars from 1 minute to 1 week, on a US Eastern time axis. Green bars closed higher than they opened, red bars lower;
+          volume bars at the bottom use the same colours.</p>
+        <p class="where">Main pane, volume along the bottom.</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw level" style="color: var(--up)"></span><h3>Call wall</h3></div>
+        <p>The strike with the largest call gamma exposure. Dealer hedging near it tends to slow rallies, so traders often read
+          it as resistance.</p>
+        <p class="where">Green dots above the price, labelled "call wall".</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw level" style="color: var(--down)"></span><h3>Put wall</h3></div>
+        <p>The strike with the largest put gamma exposure. Dealer hedging near it tends to slow declines, so traders often
+          read it as support.</p>
+        <p class="where">Red dots below the price, labelled "put wall".</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw pair" style="--a: var(--flip); --b: var(--unverified)"></span><h3>Gamma flip</h3></div>
+        <p>The price where net dealer gamma changes sign. Above it, dealer hedging tends to dampen moves; below it, hedging
+          can amplify them. It is gray while the data source marks it as not yet certified.</p>
+        <p class="where">Yellow dots, gray when unverified, labelled "flip". In the demo the first half hour of each session is gray.</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw level" style="color: var(--maxpain)"></span><h3>Max pain</h3></div>
+        <p>The strike at which open options would expire with the least total value for their holders. Some traders watch it
+          as a pull on the price into expiration.</p>
+        <p class="where">Purple dots, labelled "max pain". Layer <code>maxpain</code>.</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw pair" style="--a: var(--spot-up); --b: var(--spot-down)"></span><h3>Spot candles</h3></div>
+        <p>Muted candles after the last stored bar, built from spot prices until the full bars arrive. They keep the chart
+          current between bar updates.</p>
+        <p class="where">Right edge. The legend shows the source as "spot".</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw text"></span><h3>Legend</h3></div>
+        <p>Symbol, OHLC, and volume for the bar under the crosshair, and a second line with the flip (and its status), call wall,
+          put wall, and max pain for that bar. Move the crosshair to read the levels at any point in the past.</p>
+        <p class="where">Top left. On phones it shows one line until you tap the chart.</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw text"></span><h3>Key levels row</h3></div>
+        <p>The latest spot, walls, flip, and max pain as text, each with its change against the previous session's close. A
+          wall that moved overnight is often the first thing to check before the open.</p>
+        <p class="where">Under the chart. Plain HTML, so people and search engines can read it.</p>
+      </article>
+      <article class="card">
+        <div class="card-head"><span class="sw" style="background: var(--vwap); height: 3px"></span><h3>VWAP (plugin example)</h3></div>
+        <p>Session volume-weighted average price, added by this page with <code>registerLayers</code>. It shows how to draw your
+          own layers on the same chart; it is not part of the core.</p>
+        <p class="where">Light blue line, intraday resolutions only.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap" id="plan-layers">
+    <h2>Plan layers</h2>
+    <p class="intro">With a FlashAlpha chart key, the chart reads from the FlashAlpha API and adds the layers below to the
+      <b>Layers</b> menu. The layers you get depend on your plan; a layer outside your plan shows a "not in your plan" note.
+      Screenshots are from SPY.</p>
+
+    <div class="layer">
+      <img src="docs/gallery/heatmap.png" width="1920" height="1140" alt="Net gamma exposure per strike as a heatmap behind SPY 5-minute candles over five days, with the GEX profile and a net GEX pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <div>
+        <span class="plan growth">Growth</span>
+        <h3>Strike heatmap</h3>
+        <p>Net GEX for every strike, drawn behind the candles for each bar: green where dealers are estimated to be long gamma,
+          red where they are short. Brighter bands are larger exposure.</p>
+        <p>Use it to see where gamma is concentrated and how the concentration shifts over the days, not only where the
+          single largest strike is.</p>
+      </div>
+    </div>
+
+    <div class="layer">
+      <img src="docs/gallery/gex-profile.png" width="1920" height="1140" alt="Net gamma exposure per strike as horizontal bars at the right edge of a one-day SPY chart" loading="lazy" onerror="this.parentNode.hidden = true">
+      <div>
+        <span class="plan growth">Growth</span>
+        <h3>GEX profile</h3>
+        <p>Net GEX per strike as horizontal bars at the right edge of the price pane, for the latest snapshot or for the bar
+          under the crosshair.</p>
+        <p>Read it next to the price axis: long bars mark the strikes that carry the most exposure, and the sign tells you
+          whether hedging there tends to dampen or amplify moves.</p>
+      </div>
+    </div>
+
+    <div class="layer">
+      <img src="docs/gallery/net-gex-pane.png" width="1920" height="1140" alt="Net gamma exposure as a histogram in a pane under one month of SPY 15-minute candles" loading="lazy" onerror="this.parentNode.hidden = true">
+      <div>
+        <span class="plan basic">Basic</span>
+        <h3>Net GEX pane</h3>
+        <p>Total net GEX per bar as a histogram in its own pane under the price. Bars above zero are long-gamma, below zero
+          short-gamma.</p>
+        <p>A move from positive to negative is a regime change: the market goes from conditions where hedging dampens moves
+          to conditions where it can amplify them.</p>
+      </div>
+    </div>
+
+    <div class="layer">
+      <img src="docs/gallery/zero-dte.png" width="1920" height="1140" alt="SPY 1-minute chart with the 0DTE scope, the 0DTE magnet level, walls, and flip" loading="lazy" onerror="this.parentNode.hidden = true">
+      <div>
+        <span class="plan growth">Growth</span>
+        <h3>0DTE scope and 0DTE magnet</h3>
+        <p>The <b>0DTE</b> scope recomputes the walls, flip, heatmap, and net GEX from same-day expiries only. The 0DTE magnet
+          marks the strike that same-day positioning is estimated to pull the price towards.</p>
+        <p>Same-day options can dominate intraday hedging, so their levels can differ from the all-expiries view, most of all
+          late in the session.</p>
+      </div>
+    </div>
+
+    <div class="layer">
+      <img src="docs/gallery/metrics.png" width="1920" height="1140" alt="Metric picker with the 0DTE pin score drawn as a line in its own pane under the price and the net GEX pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <div>
+        <span class="plan growth">Growth</span>
+        <h3>Metrics</h3>
+        <p>The metric picker draws one per-minute series as a line in its own pane: vanna, charm, delta exposure, IV, the 0DTE
+          pin score, hedging estimates, and more. The screenshot shows the 0DTE pin score.</p>
+        <p>Use it to line up a metric with the price and the levels on the same time axis.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 16px">Other plan layers</h3>
+    <div class="more">
+      <article class="card">
+        <span class="plan growth">Growth</span>
+        <h3>Level events</h3>
+        <p>Markers when a wall is set, moves, or is cleared; when the price touches, rejects, or breaks a level; when the
+          flip is crossed or the regime flips; on large open interest changes; and on earnings and expiration dates.</p>
+      </article>
+      <article class="card">
+        <span class="plan growth">Growth</span>
+        <h3>Expected move</h3>
+        <p>A 1σ band around the price from implied volatility: the range the options market prices for the period. A close
+          outside the band is a larger move than the market expected.</p>
+      </article>
+      <article class="card">
+        <span class="plan alpha">Alpha</span>
+        <h3>Live open interest basis</h3>
+        <p>Levels are computed from settled open interest by default. The live basis switches them to intraday open
+          interest estimates, so walls and flip can react to positions opened during the session.</p>
+      </article>
+    </div>
+
+    <table class="plans">
+      <tr><th><span class="plan basic">Basic</span></th><td>Call wall, put wall, gamma flip, max pain, net GEX pane.</td></tr>
+      <tr><th><span class="plan growth">Growth</span></th><td>Everything in Basic, plus the strike heatmap, GEX profile, 0DTE scope and magnet, level events, expected move, and metrics.</td></tr>
+      <tr><th><span class="plan alpha">Alpha</span></th><td>Everything in Growth, plus the live open interest basis.</td></tr>
+    </table>
+    <p class="note" style="margin-top: 12px">For plans and keys, see <a href="https://flashalpha.com">flashalpha.com</a>.</p>
+  </section>
+
+  <section class="wrap" id="embed">
+    <h2>Add it to your page</h2>
+    <p class="intro">Load Lightweight Charts 5 and the chart core, add a container with a height, and mount the chart. No build
+      step and no framework.</p>
 <pre><code>&lt;script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"&gt;&lt;/script&gt;
 &lt;script src="flashalpha-chart-core.js"&gt;&lt;/script&gt;
 &lt;div id="chart" style="height: 480px"&gt;&lt;/div&gt;
 &lt;script&gt;
   FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'SPX', resolution: '5m', source: mySource });
 &lt;/script&gt;</code></pre>
+    <p class="note">To use FlashAlpha data, pass <code>apiKey</code> with your chart key instead of <code>source</code>. The
+      <a href="https://github.com/FlashAlpha-lab/options-gex-charts#readme">README</a> covers the one-line embed, every option,
+      and the layer plugin API.</p>
+  </section>
 
-  <h2>What the chart shows</h2>
-  <ul>
-    <li>Candlesticks and volume from 1-minute to weekly bars, on a US Eastern time axis.</li>
-    <li>Call wall and put wall: the strikes with the largest call and put gamma exposure.</li>
-    <li>Gamma flip: the price where net dealer gamma changes sign.</li>
-    <li>Max pain, and the key levels as text with their change since the previous session.</li>
-    <li>A plugin API for your own layers, and a compact layout for phones.</li>
-  </ul>
-
-
-  <p>Source code, options, and the data format: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
-    How GEX is computed: <a href="https://github.com/FlashAlpha-lab/gex-explained">gex-explained</a>.</p>
-  <p class="note">The levels are model estimates from open interest, not observed dealer positions, and not financial advice.
-    MIT licensed. TradingView Lightweight Charts™ is licensed under the Apache License 2.0;
-    <a href="https://www.tradingview.com/">tradingview.com</a>.</p>
+  <section class="wrap" id="data">
+    <h2>Data and options</h2>
+    <ul class="facts">
+      <li><b>Your own data:</b> pass a <code>source</code> object with <code>symbols</code>, <code>bars</code>, and
+        <code>charts</code> methods. Times are UTC ISO 8601; a <code>null</code> value is drawn as a gap.</li>
+      <li><b>FlashAlpha data:</b> pass a chart key. It is a publishable, read-only key that works only for chart data.</li>
+      <li><b>Resolutions:</b> <code>1m</code>, <code>5m</code>, <code>15m</code>, <code>1h</code>, <code>1d</code>,
+        <code>1w</code>; regular hours or extended hours. Levels are drawn on intraday resolutions.</li>
+      <li><b>Layout:</b> the chart fills its container, refreshes every 60 seconds while the page is visible, and switches to a
+        compact toolbar and legend below 560 px.</li>
+      <li><b>Methodology:</b> how GEX and the levels are computed is in
+        <a href="https://github.com/FlashAlpha-lab/gex-explained">gex-explained</a>.</li>
+    </ul>
+  </section>
 </main>
+
+<footer class="wrap">
+  <p>The levels are model estimates from open interest, not observed dealer positions, and not financial advice.</p>
+  <p>MIT licensed. Source: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
+    TradingView Lightweight Charts™ is licensed under the Apache License 2.0;
+    <a href="https://www.tradingview.com/">tradingview.com</a>.</p>
+</footer>
 <script>
   // Generated SPX-like prices: slow drift plus intraday swings, a deterministic function of time so every resolution agrees.
   const slow = t => 5000 + 45 * Math.sin(t / 3.1e8) + 16 * Math.sin(t / 2.3e7 + 1);        // the levels follow this part
