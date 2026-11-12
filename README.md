@@ -8,7 +8,7 @@ call wall, put wall, gamma flip, and max pain. It renders with
 [TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts) and reads data from the
 [FlashAlpha](https://flashalpha.com) options analytics API or from your own backend.
 
-![SPY 5-minute chart over five sessions: strike heatmap behind the candles, call wall, put wall, gamma flip, GEX profile at the right edge, net GEX pane, and the key levels below](docs/screenshot.png)
+![SPY 5-minute chart over five sessions: strike heatmap behind the candles, call wall, put wall, gamma flip, GEX profile at the right edge, net GEX pane, and the key levels below](docs/chart-full.png)
 
 [Live demo](https://flashalpha-lab.github.io/options-gex-charts/) ·
 [Examples](examples) ·
