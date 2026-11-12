@@ -25,8 +25,9 @@
   code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
   pre { background: #161a22; border: 1px solid #262a33; border-radius: 8px; padding: 12px; overflow-x: auto; }
   .note { font-size: 14px; color: #8a909c; }
-  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 16px 0; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; }
   .gallery figure { margin: 0; }
+  .gallery figure:first-child { grid-column: 1 / -1; }
   .gallery img { display: block; width: 100%; height: auto; border: 1px solid #262a33; border-radius: 8px; }
   .gallery figcaption { margin-top: 6px; font-size: 14px; color: #8a909c; }
 </style>
@@ -42,6 +43,21 @@
   <p class="note">Demo with generated data. Drag to scroll, use the wheel to zoom, and open the Layers menu to turn levels on or off.
     The muted candles at the right edge are built from spot prices after the last stored bar. The VWAP line is a layer plugin
     defined in this page.</p>
+
+  <h2>More layers with a FlashAlpha plan</h2>
+  <p>With a FlashAlpha chart key, the chart adds layers from the FlashAlpha API.</p>
+  <div class="gallery">
+    <figure><img src="docs/gallery/heatmap.png" alt="Net gamma exposure per strike as a heatmap behind the candles" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Strike heatmap: net GEX per strike behind the candles, green for long gamma and red for short.</figcaption></figure>
+    <figure><img src="docs/gallery/gex-profile.png" alt="Net gamma exposure per strike as bars at the right edge of the chart" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>GEX profile: net GEX per strike at the right edge, for the latest snapshot or the bar under the crosshair.</figcaption></figure>
+    <figure><img src="docs/gallery/net-gex-pane.png" alt="Net gamma exposure in a pane under the price" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Net GEX pane: a net GEX histogram in its own pane under the price.</figcaption></figure>
+    <figure><img src="docs/gallery/zero-dte.png" alt="Chart with the 0DTE scope and the 0DTE magnet level" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>0DTE: levels from same-day expiries only, with the 0DTE magnet.</figcaption></figure>
+    <figure><img src="docs/gallery/metrics.png" alt="Metric picker with an exposure metric drawn in its own pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <figcaption>Metrics: vanna, charm, delta exposure, IV, or another per-minute metric as a line in its own pane.</figcaption></figure>
+  </div>
 
   <h2>Add it to your page</h2>
 <pre><code>&lt;script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"&gt;&lt;/script&gt;
@@ -60,22 +76,6 @@
     <li>A plugin API for your own layers, and a compact layout for phones.</li>
   </ul>
 
-  <h2>More layers with a FlashAlpha plan</h2>
-  <p>With a FlashAlpha chart key, the chart adds layers from the FlashAlpha API.</p>
-  <div class="gallery">
-    <figure><img src="docs/gallery/heatmap.png" alt="Net gamma exposure per strike as a heatmap behind the candles" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Strike heatmap: net GEX per strike behind the candles, green for long gamma and red for short.</figcaption></figure>
-    <figure><img src="docs/gallery/gex-profile.png" alt="Net gamma exposure per strike as bars at the right edge of the chart" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>GEX profile: net GEX per strike at the right edge, for the latest snapshot or the bar under the crosshair.</figcaption></figure>
-    <figure><img src="docs/gallery/net-gex-pane.png" alt="Net gamma exposure in a pane under the price" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Net GEX pane: a net GEX histogram in its own pane under the price.</figcaption></figure>
-    <figure><img src="docs/gallery/zero-dte.png" alt="Chart with the 0DTE scope and the 0DTE magnet level" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>0DTE: levels from same-day expiries only, with the 0DTE magnet.</figcaption></figure>
-    <figure><img src="docs/gallery/metrics.png" alt="Metric picker with an exposure metric drawn in its own pane" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>Metrics: vanna, charm, delta exposure, IV, or another per-minute metric as a line in its own pane.</figcaption></figure>
-    <figure><img src="docs/gallery/demo.gif" alt="Animated walkthrough of the FlashAlpha chart layers" loading="lazy" onerror="this.parentNode.hidden = true">
-      <figcaption>The layers turned on one by one.</figcaption></figure>
-  </div>
 
   <p>Source code, options, and the data format: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
     How GEX is computed: <a href="https://github.com/FlashAlpha-lab/gex-explained">gex-explained</a>.</p>
@@ -84,14 +84,21 @@
     <a href="https://www.tradingview.com/">tradingview.com</a>.</p>
 </main>
 <script>
-  const price = t => 5000 + 40 * Math.sin(t / 3e8) + 12 * Math.sin(t / 2e7) + 3 * Math.sin(t / 1.3e6);
+  // Generated SPX-like prices: slow drift plus intraday swings, a deterministic function of time so every resolution agrees.
+  const slow = t => 5000 + 45 * Math.sin(t / 3.1e8) + 16 * Math.sin(t / 2.3e7 + 1);        // the levels follow this part
+  const price = t => slow(t) + 9 * Math.sin(t / 3.9e6 + 2) + 5 * Math.sin(t / 7.1e5 + 3) + 2.4 * Math.sin(t / 1.9e5 + 4)
+    + 1.2 * Math.sin(t / 6.3e4 + 5);
+  const noise = t => { const x = Math.sin(t / 6e4 * 12.9898) * 43758.5453; return x - Math.floor(x); };   // 0..1, fixed per minute
   function walk(fromIso, toIso, stepSec) {
     const out = [], end = Date.parse(toIso), ms = stepSec * 1000;
     for (let t = Math.ceil(Date.parse(fromIso) / ms) * ms; t < end; t += ms) {
       const d = new Date(t), mins = d.getUTCHours() * 60 + d.getUTCMinutes();
       if (stepSec < 86400 && (d.getUTCDay() % 6 === 0 || mins < 14 * 60 + 30 || mins >= 21 * 60)) continue;
-      const o = price(t), c = price(t + ms - 1);
-      out.push({ ts: d.toISOString(), open: o, high: Math.max(o, c) + 1, low: Math.min(o, c) - 1, close: c, volume: 1000 + (t / ms % 7) * 500 });
+      const o = price(t), c = price(t + ms - 1), span = Math.sqrt(stepSec / 300);
+      const fromOpen = mins - (14 * 60 + 30), toClose = 21 * 60 - mins;      // volume is high at the open and the close
+      const shape = stepSec < 86400 ? 1 + 2.5 * Math.exp(-fromOpen / 25) + 1.5 * Math.exp(-toClose / 25) : 60;
+      out.push({ ts: d.toISOString(), open: o, close: c, high: Math.max(o, c) + span * (0.3 + 1.8 * noise(t)),
+        low: Math.min(o, c) - span * (0.3 + 1.8 * noise(t + 7e4)), volume: Math.round(stepSec * 40 * shape * (0.6 + 0.8 * noise(t + 3e4))) });
     }
     return out;
   }
@@ -110,10 +117,10 @@
         return {
           ts: b.ts,
           spot: { first: b.open, min: b.low, max: b.high, last: b.close },
-          call_wall: round(b.close, 25) + 50, put_wall: round(b.close, 25) - 50,
-          max_pain: round(b.close, 50),
+          call_wall: round(slow(Date.parse(b.ts)), 25) + 25, put_wall: round(slow(Date.parse(b.ts)), 25) - 25,
+          max_pain: round(slow(Date.parse(b.ts)), 25),
           // The first half hour of each session: the flip is not certified yet and is drawn gray.
-          gamma_flip: { last: round(b.close, 10) - 20, status: mins < 15 * 60 ? 'unverified' : 'available' },
+          gamma_flip: { last: round(slow(Date.parse(b.ts)), 5) - 15, status: mins < 15 * 60 ? 'unverified' : 'available' },
         };
       }) : [],
     }),

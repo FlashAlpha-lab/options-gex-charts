@@ -116,9 +116,10 @@
 .fac-narrow .fac-keys { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .fac-narrow .fac-keys > span { flex: none; }
 .fac-narrow [data-g="session"], .fac-narrow .fac-status { display: none; }
-.fac-brand { position: absolute; left: 10px; bottom: 38px; z-index: 3; display: block; height: 24px; opacity: 0.6; line-height: 0; }
+.fac-brand { position: absolute; left: 10px; bottom: 38px; z-index: 3; display: flex; align-items: center; gap: 6px; height: 24px;
+  opacity: 0.75; text-decoration: none; color: #e6e9ef; font: 600 14px/1 system-ui, sans-serif; letter-spacing: 0.2px; }
 .fac-brand:hover { opacity: 1; }
-.fac-brand img { height: 24px; width: auto; }
+.fac-brand img { height: 22px; width: auto; }
 .fac-credit { padding: 0 10px 3px; text-align: right; font-size: 10px; }
 .fac-credit a { color: var(--fac-muted, #8a909c); text-decoration: none; }
 .fac-credit a:hover { text-decoration: underline; }`;
@@ -213,7 +214,7 @@
         ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"></div></div>' : ''}
         <span class="fac-status"></span></div>` : ''}
       <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
-        ${o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="${esc(o.brand.name)}"></a>` : ''}</div>
+        ${o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>` : ''}</div>
       ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
       ${o.brand ? '<div class="fac-credit"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>' : ''}`;
     container.appendChild(root);
