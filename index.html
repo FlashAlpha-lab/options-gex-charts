@@ -127,7 +127,8 @@
 <main>
   <section class="wrap" id="demo" aria-label="Live demo">
     <div class="chart-frame"><div id="chart"></div></div>
-    <p class="note chart-note" id="demo-note"></p>
+    <p class="note chart-note">Live demo with generated data; the page makes no data requests. Drag to scroll, use the wheel or
+      pinch to zoom, and open the <b>Layers</b> menu to turn layers on or off.</p>
   </section>
 
   <section class="wrap" id="read">
@@ -412,29 +413,10 @@
       };
     },
   });
-  const brand = { logo: 'docs/flashalpha-logo.png', href: 'https://flashalpha.com', name: 'FlashAlpha' };
-  const el = document.getElementById('chart'), note = document.getElementById('demo-note');
-  function generated() {
-    note.innerHTML = 'Live demo with generated data. Drag to scroll, use the wheel or pinch to zoom, and open the <b>Layers</b> menu to turn layers on or off.';
-    FlashAlphaChart.mount(el, { symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain', 'vwap'], source, refresh: 0,
-      symbolButtons: false, brand });
-  }
-  // Real SPX, SPY, QQQ and stocks from the FlashAlpha chart API, 15 minutes delayed, with an embed key locked to this site.
-  // Without the key, or when the API cannot answer, the chart falls back to generated data.
-  const DEMO_KEY = '';
-  const CHART_API = 'https://charts.flashalpha.com';
-  if (!DEMO_KEY) generated();
-  else {
-    const s = document.createElement('script');
-    s.src = CHART_API + '/flashalpha-chart-layers.js';
-    s.onload = s.onerror = () => {
-      const chart = FlashAlphaChart.mount(el, { symbol: 'SPX', resolution: '5m', apiKey: DEMO_KEY, baseUrl: CHART_API, brand,
-        layers: ['levels', 'maxpain', 'netgex', 'heatmap', 'profile'] });
-      el.addEventListener('flashalpha:nodata', () => { chart.destroy(); generated(); }, { once: true });
-      note.innerHTML = 'Real FlashAlpha data, <b>15 minutes delayed</b>. Pick a symbol, drag to scroll, use the wheel or pinch to zoom, and open the <b>Layers</b> menu.';
-    };
-    document.head.appendChild(s);
-  }
+  FlashAlphaChart.mount(document.getElementById('chart'), {
+    symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain', 'vwap'], source, refresh: 0, symbolButtons: false,
+    brand: { logo: 'docs/flashalpha-logo.png', href: 'https://flashalpha.com', name: 'FlashAlpha' },
+  });
 </script>
 </body>
 </html>
