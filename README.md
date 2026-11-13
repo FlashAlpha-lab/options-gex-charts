@@ -141,7 +141,7 @@ With a FlashAlpha embed key, the chart adds more layers from the FlashAlpha API,
 |---|---|
 | Free | Candles and volume. |
 | Basic | Call wall, put wall, gamma flip, max pain, 0DTE magnet, net GEX pane, vanna / charm / delta exposure panes. |
-| Growth | Basic, plus the strike heatmap, GEX profile (with ticks where each strike stood 15 minutes earlier), session replay, 0DTE scope, level events, expected move (1σ band), and metrics (IV, 0DTE pin score, hedging estimates, and more). |
+| Growth | Basic, plus the strike heatmap and GEX profile with gamma, delta, vanna and charm lenses (the profile with ticks where each strike stood 15 minutes earlier), session replay, 0DTE scope, level events, expected move (1σ band), and metrics (IV, 0DTE pin score, hedging estimates, and more). |
 | Alpha | Growth, plus the live open interest basis. |
 
 ![GEX profile: net GEX per strike at the right edge of the chart](docs/gallery/gex-profile.png)
@@ -166,7 +166,7 @@ For all of them, see the [live demo](https://flashalpha-lab.github.io/options-ge
 | `exposure` | `true` | `false` draws candles only. |
 | `keyLevels` | `true` | `false` hides the key levels text. |
 | `source` | FlashAlpha | Your own data source. |
-| `apiKey` | None | FlashAlpha chart key. |
+| `apiKey` | `setLicenseKey` value | FlashAlpha embed key (`fa_pk_…`). |
 | `baseUrl` | Same origin | Chart API root URL. |
 | `refresh` | `60` | Seconds between refreshes. `0` turns refresh off. |
 | `theme` | `dark` | `dark`, `light`, or `auto` (follows the reader's system setting). |

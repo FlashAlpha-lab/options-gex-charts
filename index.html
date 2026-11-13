@@ -79,6 +79,7 @@
   .layer { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 28px; align-items: center; padding: 28px 0;
     border-top: 1px solid var(--line); }
   .layer:first-of-type { border-top: 0; }
+  .layer picture { display: block; min-width: 0; }
   .layer img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
   .layer p { font-size: 15px; }
   .plan { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px;
@@ -195,12 +196,12 @@
 
   <section class="wrap" id="plan-layers">
     <h2>Plan layers</h2>
-    <p class="intro">With a FlashAlpha chart key, the chart reads from the FlashAlpha API and adds the layers below to the
+    <p class="intro">With a FlashAlpha embed key, the chart reads from the FlashAlpha API and adds the layers below to the
       <b>Layers</b> menu. The layers you get depend on your plan; a layer above your plan shows a lock and an <b>Upgrade</b> link.
       Screenshots are from SPY.</p>
 
     <div class="layer">
-      <img src="docs/gallery/heatmap.png" width="1920" height="1140" alt="Net gamma exposure per strike as a heatmap behind SPY 5-minute candles over five days, with the GEX profile and a net GEX pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <picture><source srcset="docs/gallery/heatmap.webp" type="image/webp"><img src="docs/gallery/heatmap.png" width="1920" height="1140" alt="Net gamma exposure per strike as a heatmap behind SPY 5-minute candles over five days, with the GEX profile and a net GEX pane" loading="lazy" onerror="this.parentNode.parentNode.hidden = true"></picture>
       <div>
         <span class="plan growth">Growth</span>
         <h3>Strike heatmap</h3>
@@ -212,7 +213,7 @@
     </div>
 
     <div class="layer">
-      <img src="docs/gallery/gex-profile.png" width="1920" height="1140" alt="Net gamma exposure per strike as horizontal bars at the right edge of a one-day SPY chart" loading="lazy" onerror="this.parentNode.hidden = true">
+      <picture><source srcset="docs/gallery/gex-profile.webp" type="image/webp"><img src="docs/gallery/gex-profile.png" width="1920" height="1140" alt="Net gamma exposure per strike as horizontal bars at the right edge of a one-day SPY chart" loading="lazy" onerror="this.parentNode.parentNode.hidden = true"></picture>
       <div>
         <span class="plan growth">Growth</span>
         <h3>GEX profile</h3>
@@ -224,7 +225,7 @@
     </div>
 
     <div class="layer">
-      <img src="docs/gallery/net-gex-pane.png" width="1920" height="1140" alt="Net gamma exposure as a histogram in a pane under one month of SPY 15-minute candles" loading="lazy" onerror="this.parentNode.hidden = true">
+      <picture><source srcset="docs/gallery/net-gex-pane.webp" type="image/webp"><img src="docs/gallery/net-gex-pane.png" width="1920" height="1140" alt="Net gamma exposure as a histogram in a pane under one month of SPY 15-minute candles" loading="lazy" onerror="this.parentNode.parentNode.hidden = true"></picture>
       <div>
         <span class="plan basic">Basic</span>
         <h3>Net GEX pane</h3>
@@ -236,7 +237,7 @@
     </div>
 
     <div class="layer">
-      <img src="docs/gallery/zero-dte.png" width="1920" height="1140" alt="SPY 1-minute chart with the 0DTE scope, the 0DTE magnet level, walls, and flip" loading="lazy" onerror="this.parentNode.hidden = true">
+      <picture><source srcset="docs/gallery/zero-dte.webp" type="image/webp"><img src="docs/gallery/zero-dte.png" width="1920" height="1140" alt="SPY 1-minute chart with the 0DTE scope, the 0DTE magnet level, walls, and flip" loading="lazy" onerror="this.parentNode.parentNode.hidden = true"></picture>
       <div>
         <span class="plan growth">Growth</span>
         <h3>0DTE scope and 0DTE magnet</h3>
@@ -248,7 +249,7 @@
     </div>
 
     <div class="layer">
-      <img src="docs/gallery/metrics.png" width="1920" height="1140" alt="Metric picker with the 0DTE pin score drawn as a line in its own pane under the price and the net GEX pane" loading="lazy" onerror="this.parentNode.hidden = true">
+      <picture><source srcset="docs/gallery/metrics.webp" type="image/webp"><img src="docs/gallery/metrics.png" width="1920" height="1140" alt="Metric picker with the 0DTE pin score drawn as a line in its own pane under the price and the net GEX pane" loading="lazy" onerror="this.parentNode.parentNode.hidden = true"></picture>
       <div>
         <span class="plan growth">Growth</span>
         <h3>Metrics</h3>
@@ -298,7 +299,7 @@
 &lt;script&gt;
   FlashAlphaChart.mount(document.getElementById('chart'), { symbol: 'SPX', resolution: '5m', source: mySource });
 &lt;/script&gt;</code></pre>
-    <p class="note">To use FlashAlpha data, pass <code>apiKey</code> with your chart key instead of <code>source</code>. The
+    <p class="note">To use FlashAlpha data, pass <code>apiKey</code> with your embed key (<code>fa_pk_…</code>) instead of <code>source</code>. The
       <a href="https://github.com/FlashAlpha-lab/options-gex-charts#readme">README</a> covers the one-line embed, every option,
       and the layer plugin API.</p>
   </section>
@@ -308,7 +309,7 @@
     <ul class="facts">
       <li><b>Your own data:</b> pass a <code>source</code> object with <code>symbols</code>, <code>bars</code>, and
         <code>charts</code> methods. Times are UTC ISO 8601; a <code>null</code> value is drawn as a gap.</li>
-      <li><b>FlashAlpha data:</b> pass a chart key. It is a publishable, read-only key that works only for chart data.</li>
+      <li><b>FlashAlpha data:</b> pass an embed key (<code>fa_pk_…</code>). It is read-only, works only for chart data, and only on the domains you list when you create it.</li>
       <li><b>Resolutions:</b> <code>1m</code>, <code>5m</code>, <code>15m</code>, <code>1h</code>, <code>1d</code>,
         <code>1w</code>; regular hours or extended hours. Levels are drawn on intraday resolutions.</li>
       <li><b>Layout:</b> the chart fills its container, refreshes every 60 seconds while the page is visible, and switches to a

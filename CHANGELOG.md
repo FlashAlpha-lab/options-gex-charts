@@ -15,7 +15,7 @@
 - Requests time out after 20 s; a chart whose element leaves the page stops refreshing.
 - `embed.js`: default `5m` over 5 days, `data-range` accepts `1D 5D 1M 6M 1Y`, `data-theme`, `data-upgrade-url`,
   Lightweight Charts pinned by an SRI hash.
-- Docs: [chart API reference](docs/api.md).
+- Docs: [chart API reference](docs/api.md); gallery images also as WebP (about 4x smaller).
 
 ## 0.1.0 — 2026-11-11
 
