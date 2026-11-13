@@ -3,17 +3,17 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Built on Lightweight Charts 5](https://img.shields.io/badge/Lightweight%20Charts-5.0-26a69a.svg)](https://github.com/tradingview/lightweight-charts)
 
-An open-source, embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price:
-call wall, put wall, gamma flip, and max pain. It renders with
+An open-source, embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels, the dealer gamma
+levels, on the price: call wall, put wall, gamma flip, and max pain. It renders with
 [TradingView Lightweight Charts™](https://github.com/tradingview/lightweight-charts) and reads data from the
-[FlashAlpha](https://flashalpha.com) options analytics API or from your own backend.
+[FlashAlpha](https://flashalpha.com/?utm_source=github&utm_medium=referral&utm_campaign=options-gex-charts) options analytics API or from your own backend.
 
 ![SPY 5-minute chart over five sessions: strike heatmap behind the candles, call wall, put wall, gamma flip, GEX profile at the right edge, net GEX pane, and the key levels below](docs/chart-full.png)
 
-[Live demo](https://flashalpha-lab.github.io/options-gex-charts/) ·
+**[Live demo](https://flashalpha-lab.github.io/options-gex-charts/)** ·
 [Examples](examples) ·
 [How GEX is computed](https://github.com/FlashAlpha-lab/gex-explained) ·
-[FlashAlpha API](https://flashalpha.com)
+[Get a FlashAlpha API key](https://flashalpha.com/?utm_source=github&utm_medium=referral&utm_campaign=options-gex-charts)
 
 ## Features
 
@@ -26,7 +26,9 @@ call wall, put wall, gamma flip, and max pain. It renders with
 - **Embeddable:** one `<div>` and one `<script>`. No build step and no framework. The chart fills its container.
 - **Your own data:** pass a `source` object to draw GEX levels from any backend.
 - **Plugins:** add your own layers, such as VWAP or custom levels, with `registerLayers`.
-- **Mobile layout:** the toolbar and legend shrink below 560 px.
+- **Light and dark:** `theme: 'light' | 'dark' | 'auto'` follows your page or the reader's system setting.
+- **Mobile layout:** below 560 px the toolbar keeps the main buttons and moves the rest into the Layers menu; the key
+  levels wrap into two columns.
 - **MIT licensed.**
 
 ## Quick start with your own data
@@ -61,29 +63,43 @@ For a complete page, open [`examples/custom-source.html`](examples/custom-source
 
 ## Use FlashAlpha data
 
-To use FlashAlpha data, pass a FlashAlpha chart key instead of a `source` object:
+To use FlashAlpha data, pass a FlashAlpha embed key instead of a `source` object:
 
 ```js
-FlashAlphaChart.mount(el, {
-  symbol: 'SPX',
-  resolution: '5m',
-  apiKey: 'YOUR_CHART_KEY',
-  baseUrl: 'https://charts.flashalpha.com',
-});
+FlashAlphaChart.setLicenseKey('fa_pk_YOUR_EMBED_KEY');   // once per page, before mounting charts
+FlashAlphaChart.mount(el, { symbol: 'SPX', resolution: '5m', baseUrl: 'https://charts.flashalpha.com' });
 ```
 
-The chart sends the key in the `X-Api-Key` header. Anyone can read the key in your page source, so the chart key is a
-publishable key: it is read-only and works only for chart data. The layers that you get depend on your FlashAlpha plan.
-A layer that your plan doesn't include shows a "not in your plan" note.
+The chart sends the key in the `X-Api-Key` header. Anyone can read a key in your page source, so a page uses an **embed
+key** (`fa_pk_…`), never your secret API key:
 
-### One-line embed
+- it is read-only and works only for chart data;
+- it works only on the domains you list when you create it;
+- it carries your plan and expires (30 days by default, or as short as 5 minutes).
+
+Create one from your server or a terminal with your secret API key:
+
+```sh
+curl -X POST https://charts.flashalpha.com/v1/embed-keys \
+  -H "X-Api-Key: $FLASHALPHA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"domains": ["example.com"]}'
+```
+
+A site with its own backend can mint a short-lived key (`"ttl_seconds": 3600`) for each page view. The chart warns in the
+browser console when a page uses a secret key.
+
+The layers you get depend on your FlashAlpha plan. A layer above your plan shows a lock in the Layers menu and a link to
+upgrade; layers you turned on that your plan doesn't include are named in an **Upgrade** box over the chart. The full API
+(endpoints, payloads, errors) is in the [chart API reference](docs/api.md).
+
+## Embed a GEX chart in one line
 
 The embed script loads Lightweight Charts and the chart core, then mounts every element that has the
 `data-flashalpha-chart` attribute:
 
 ```html
-<div data-flashalpha-chart data-symbol="SPX" data-key="YOUR_CHART_KEY" data-resolution="5m" style="height: 480px"></div>
-<script async src="https://charts.flashalpha.com/embed.js"></script>
+<div data-flashalpha-chart data-symbol="SPX" style="height: 480px"></div>
+<script async src="https://charts.flashalpha.com/embed.js" data-key="fa_pk_YOUR_EMBED_KEY"></script>
 ```
 
 If your page adds charts after it loads, for example in a single-page app, call `FlashAlphaEmbed.scan()`.
@@ -91,9 +107,11 @@ If your page adds charts after it loads, for example in a single-page app, call 
 | Attribute | Default | Description |
 |---|---|---|
 | `data-symbol` | Required | Ticker, for example `SPX` or `SPY`. |
-| `data-key` | None | Your FlashAlpha chart key. |
-| `data-resolution` | `1d` | One of `1m`, `5m`, `15m`, `1h`, `1d`, `1w`. |
-| `data-range` | Depends on resolution | Number of days to show. |
+| `data-key` | The script tag's `data-key` | Embed key for this chart. |
+| `data-resolution` | `5m` | One of `1m`, `5m`, `15m`, `1h`, `1d`, `1w`. |
+| `data-range` | Depends on resolution | Days to show, or `1D`, `5D`, `1M`, `6M`, `1Y`. |
+| `data-theme` | `dark` | `dark`, `light`, or `auto`. |
+| `data-upgrade-url` | FlashAlpha pricing | Where locked layers and the Upgrade button link. |
 | `data-layers` | `levels` | Comma-separated layer IDs, for example `levels,maxpain`. |
 | `data-session` | `rth` | `rth` for regular hours, `eth` to add pre-market and after-hours. |
 | `data-controls` | `true` | `false` hides the toolbar. |
@@ -102,29 +120,29 @@ If your page adds charts after it loads, for example in a single-page app, call 
 | `data-refresh` | `60` | Seconds between refreshes while the page is visible. `0` turns refresh off. |
 | `data-base` | The script's host | Chart API root URL, for example when you use a proxy. |
 
-To skip the optional layer bundle, add `data-layer-bundle="false"` to the `<script>` tag.
+On the `<script>` tag, `data-key` sets the key for every chart on the page, `data-layer-bundle="false"` skips the optional
+layer bundle, and `data-debug="true"` shows load status. Lightweight Charts is loaded from unpkg pinned by an SRI hash.
 
-## Layers
+## GEX layers
 
 | Layer ID | What it draws |
 |---|---|
-| `levels` | Call wall, put wall, and gamma flip. The flip is gray when the data source marks it as not certified. |
+| `levels` | Call wall, put wall, and gamma flip as step lines through the day. The flip is gray when the data source marks it as not certified. |
 | `maxpain` | Max pain. |
 
 After the last stored bar, the chart draws muted "spot" candles when the data source sends spot prices for those
 minutes. The chart refreshes every 60 seconds while the page is visible and keeps your zoom.
 
-### Pro layers
+### Pro layers: heatmap, GEX profile, 0DTE, replay
 
-With a FlashAlpha chart key, the chart adds more layers from the FlashAlpha API, depending on your plan.
+With a FlashAlpha embed key, the chart adds more layers from the FlashAlpha API, depending on your plan.
 
 | Plan | Layers |
 |---|---|
-| Basic | Call wall, put wall, gamma flip, max pain, net GEX pane. |
-| Growth | Basic, plus the strike heatmap, GEX profile, 0DTE scope and 0DTE magnet, level events, expected move (1σ band), and metrics (vanna, charm, delta exposure, IV, 0DTE pin score, hedging estimates, and more). |
+| Free | Candles and volume. |
+| Basic | Call wall, put wall, gamma flip, max pain, 0DTE magnet, net GEX pane, vanna / charm / delta exposure panes. |
+| Growth | Basic, plus the strike heatmap, GEX profile (with ticks where each strike stood 15 minutes earlier), session replay, 0DTE scope, level events, expected move (1σ band), and metrics (IV, 0DTE pin score, hedging estimates, and more). |
 | Alpha | Growth, plus the live open interest basis. |
-
-![Strike heatmap: net GEX per strike behind the candles](docs/gallery/heatmap.png)
 
 ![GEX profile: net GEX per strike at the right edge of the chart](docs/gallery/gex-profile.png)
 
@@ -151,13 +169,16 @@ For all of them, see the [live demo](https://flashalpha-lab.github.io/options-ge
 | `apiKey` | None | FlashAlpha chart key. |
 | `baseUrl` | Same origin | Chart API root URL. |
 | `refresh` | `60` | Seconds between refreshes. `0` turns refresh off. |
-| `background` | `#0f1115` | Background color. You can also set the CSS variable `--fac-bg`. |
-| `brand` | None | `{ logo, href, name }`: shows your logo, linked to `href`, at the bottom left of the price pane instead of the TradingView logo, and a "Charts by TradingView" link under the chart. |
+| `theme` | `dark` | `dark`, `light`, or `auto` (follows the reader's system setting). |
+| `background` | Per theme | Background color. You can also set the CSS variable `--fac-bg`. |
+| `upgradeUrl` | FlashAlpha pricing | Where locked layers and the Upgrade box link. |
+| `debug` | `false` | Shows load status in the toolbar. |
+| `brand` | None | `{ logo, href, name }`: shows your logo, linked to `href`, under the chart instead of the TradingView logo on the chart, next to a "Charts by TradingView" link. |
 | `lightweightCharts` | `window.LightweightCharts` | The Lightweight Charts module, if you import it instead of loading the script. |
 
 `mount` returns an object with these members: `setSymbol(symbol)`, `setResolution(resolution)`, `setRange(days)`,
-`setSession('rth' | 'eth')`, `setLayers([...])`, `layers`, `reload()`, `destroy()`, and `chart` (the Lightweight Charts
-instance, for your own series).
+`setSession('rth' | 'eth')`, `setLayers([...])`, `setTheme(theme)`, `layers`, `plan`, `reload()`, `destroy()`, and `chart`
+(the Lightweight Charts instance, for your own series). A chart whose element leaves the page stops refreshing.
 
 When there's no data to draw, the chart shows a message and dispatches a `flashalpha:nodata` event on the container.
 The event bubbles, and `event.detail` has `symbol` and `error`. For example, you can hide the chart's section:
@@ -198,6 +219,8 @@ const mySource = {
 - An exposure row can include `spot: { first, min, max, last }`. The chart then draws muted "spot" candles for minutes
   after the last bar.
 - To report an error, return `{ error: 'message' }`. The chart shows the message instead of an empty chart.
+- To lock layers by plan, return `plan` (`free`, `basic`, `growth`, `alpha`) from `charts`; layer plugins declare the
+  plan each layer needs with `plans: { id: 'growth' }`.
 
 ## Add layers
 
@@ -228,6 +251,7 @@ A plugin has these fields:
 
 - `layers`: an array of `[id, label]` pairs.
 - `defaults` (optional): layer IDs that are on by default.
+- `plans` (optional): the lowest plan per layer ID, for example `{ heatmap: 'growth' }`.
 - `apiLayers(ctx)` (optional): extra API layers to request.
 - `attach(ctx)`: runs once per chart and returns a handle with any of `ready()`, `draw(response)`, `clear()`,
   `legend(time, y)`, `crosshair(time, y)`, and `destroy()`. The handle can also have:
@@ -295,7 +319,7 @@ under the chart instead. Keep that link if you change the chart's markup.
 
 ## Related projects
 
-- [FlashAlpha](https://flashalpha.com): real-time options analytics API.
+- [FlashAlpha](https://flashalpha.com/?utm_source=github&utm_medium=referral&utm_campaign=options-gex-charts): real-time options analytics API.
 - [flashalpha-js](https://github.com/FlashAlpha-lab/flashalpha-js): JavaScript and TypeScript SDK.
 - [flashalpha-python](https://github.com/FlashAlpha-lab/flashalpha-python): Python SDK.
 - [gex-explained](https://github.com/FlashAlpha-lab/gex-explained): the theory and math behind GEX.

@@ -12,9 +12,13 @@
 <meta property="og:description" content="Embeddable JavaScript chart with call wall, put wall, gamma flip, and max pain levels. MIT licensed.">
 <meta property="og:url" content="https://flashalpha-lab.github.io/options-gex-charts/">
 <meta property="og:image" content="https://flashalpha-lab.github.io/options-gex-charts/docs/chart-full.png">
+<meta property="og:site_name" content="FlashAlpha">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1140">
+<meta property="og:image:alt" content="SPY 5-minute chart with strike heatmap, call wall, put wall, gamma flip and net GEX pane">
 <meta name="twitter:card" content="summary_large_image">
-<script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"></script>
-<script src="src/flashalpha-chart-core.js"></script>
+<link rel="preconnect" href="https://unpkg.com">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","name":"Options GEX Charts","description":"Embeddable JavaScript candlestick chart with options gamma exposure (GEX) levels: call wall, put wall, gamma flip, max pain.","url":"https://flashalpha-lab.github.io/options-gex-charts/","codeRepository":"https://github.com/FlashAlpha-lab/options-gex-charts","programmingLanguage":"JavaScript","license":"https://opensource.org/licenses/MIT","keywords":"gamma exposure chart, GEX chart, dealer gamma levels, call wall, put wall, gamma flip, max pain, lightweight charts","author":{"@type":"Organization","name":"FlashAlpha","url":"https://flashalpha.com"}}</script>
 <style>
   :root {
     --bg: #0f1115; --panel: #151922; --line: #262a33; --text: #d6d9e0; --soft: #b9bec9; --muted: #8a909c; --accent: #4f8cff;
@@ -109,13 +113,13 @@
 <body>
 <header class="wrap">
   <div class="eyebrow">Open source · MIT</div>
-  <h1>Options GEX Charts</h1>
+  <h1>Options GEX Charts: gamma exposure chart for your website</h1>
   <p class="lead">An embeddable JavaScript candlestick chart that draws options gamma exposure (GEX) levels on the price:
     call wall, put wall, gamma flip, and max pain. Built on TradingView Lightweight Charts™, with data from the
     FlashAlpha API or your own backend.</p>
   <div class="actions">
     <a class="btn" href="https://github.com/FlashAlpha-lab/options-gex-charts">View on GitHub</a>
-    <a class="btn primary" href="https://flashalpha.com">Get an API key</a>
+    <a class="btn primary" href="https://flashalpha.com/?utm_source=github-pages&utm_medium=referral&utm_campaign=options-gex-charts">Get a FlashAlpha API key</a>
   </div>
 </header>
 
@@ -192,7 +196,7 @@
   <section class="wrap" id="plan-layers">
     <h2>Plan layers</h2>
     <p class="intro">With a FlashAlpha chart key, the chart reads from the FlashAlpha API and adds the layers below to the
-      <b>Layers</b> menu. The layers you get depend on your plan; a layer outside your plan shows a "not in your plan" note.
+      <b>Layers</b> menu. The layers you get depend on your plan; a layer above your plan shows a lock and an <b>Upgrade</b> link.
       Screenshots are from SPY.</p>
 
     <div class="layer">
@@ -281,7 +285,7 @@
       <tr><th><span class="plan growth">Growth</span></th><td>Everything in Basic, plus the strike heatmap, GEX profile, 0DTE scope and magnet, level events, expected move, and metrics.</td></tr>
       <tr><th><span class="plan alpha">Alpha</span></th><td>Everything in Growth, plus the live open interest basis.</td></tr>
     </table>
-    <p class="note" style="margin-top: 12px">For plans and keys, see <a href="https://flashalpha.com">flashalpha.com</a>.</p>
+    <p class="note" style="margin-top: 12px">For plans and keys, see <a href="https://flashalpha.com/?utm_source=github-pages&utm_medium=referral&utm_campaign=options-gex-charts">flashalpha.com</a>.</p>
   </section>
 
   <section class="wrap" id="embed">
@@ -315,12 +319,36 @@
   </section>
 </main>
 
+<section class="wrap" id="faq">
+  <h2>Gamma exposure FAQ</h2>
+  <h3>What is gamma exposure (GEX)?</h3>
+  <p>GEX estimates how much options market makers' delta changes when the underlying price moves. It's summed over all strikes
+    from open interest and each option's gamma. It indicates how much stock dealers might need to buy or sell to stay hedged.</p>
+  <h3>What is the call wall?</h3>
+  <p>The strike with the largest call gamma exposure. Dealer hedging near it tends to slow rallies, so traders often read it as resistance.</p>
+  <h3>What is the put wall?</h3>
+  <p>The strike with the largest put gamma exposure. Traders often read it as support.</p>
+  <h3>What is the gamma flip?</h3>
+  <p>The price where net GEX changes sign. Above it, dealers are estimated to be long gamma, and their hedging dampens moves.
+    Below it, they are estimated to be short gamma, and their hedging can amplify moves.</p>
+  <h3>What is max pain?</h3>
+  <p>The strike at which open options would expire with the least total value for their holders.</p>
+  <h3>Is this a trading signal?</h3>
+  <p>No. The levels are model estimates from open interest, not observed dealer positions, and they aren't financial advice.</p>
+  <h3>Can I use the chart with my own backend?</h3>
+  <p>Yes. Pass a <code>source</code> object. You need a FlashAlpha key only for FlashAlpha data.</p>
+</section>
+
 <footer class="wrap">
+  <p>Live GEX data, 0DTE levels and the options analytics API: <a href="https://flashalpha.com/?utm_source=github-pages&utm_medium=referral&utm_campaign=options-gex-charts">FlashAlpha</a>.</p>
   <p>The levels are model estimates from open interest, not observed dealer positions, and not financial advice.</p>
   <p>MIT licensed. Source: <a href="https://github.com/FlashAlpha-lab/options-gex-charts">github.com/FlashAlpha-lab/options-gex-charts</a>.
     TradingView Lightweight Charts™ is licensed under the Apache License 2.0;
     <a href="https://www.tradingview.com/">tradingview.com</a>.</p>
 </footer>
+<script src="https://unpkg.com/lightweight-charts@5.0.0/dist/lightweight-charts.standalone.production.js"
+  integrity="sha384-/z0wnnyAhUnLX5YRrxljPlJlhJPGIOuhRU9kt785gf9AUeh8YsG8O6oxSE2sTS9m" crossorigin="anonymous"></script>
+<script src="src/flashalpha-chart-core.js"></script>
 <script>
   // Generated SPX-like prices: slow drift plus intraday swings, a deterministic function of time so every resolution agrees.
   const slow = t => 5000 + 45 * Math.sin(t / 3.1e8) + 16 * Math.sin(t / 2.3e7 + 1);        // the levels follow this part

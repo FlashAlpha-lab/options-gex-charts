@@ -18,8 +18,15 @@
  * When there is nothing to draw (unknown symbol, no bars, the API unreachable) a message covers the chart and the container
  * gets a bubbling 'flashalpha:nodata' CustomEvent, detail {symbol, error}, e.g. to hide the section. An unknown symbol is
  * not polled again. Below 560 px wide the toolbar and the legend are compact (one line until the crosshair is on the chart).
- * options.brand {logo, href, name}: the logo (24 px high, a link to href) at the bottom left of the price pane instead of the
- * TradingView logo, and a "Charts by TradingView" text link under the chart (the Lightweight Charts license asks for one).
+ * options.brand {logo, href, name}: the logo (a link to href) under the chart instead of the TradingView logo on the chart,
+ * next to a "Charts by TradingView" text link (the Lightweight Charts license asks for one).
+ * options.theme 'dark' (default), 'light' or 'auto' (follows the reader's prefers-color-scheme); options.background overrides
+ * the background colour. options.debug shows load status in the toolbar.
+ * Keys and plans: options.apiKey, or FlashAlphaChart.setLicenseKey(key) once for every chart on the page. On a public page use
+ * an embed key (fa_pk_…, locked to your domains); the chart warns in the console when it sees a secret key. The API answers
+ * with the key's plan (response.plan): layers above it show a lock and a link to options.upgradeUrl (FlashAlpha pricing,
+ * tagged utm_source=chart), and an "Upgrade" box over the chart names the picked layers the plan does not include.
+ * Errors from the API are shown in words (a bad key, a domain the key is not for, rate limits), not as codes.
  *
  * The chart fills its container and follows its size. Data comes from a source object, so the same widget can read the
  * FlashAlpha chart API (default: FlashAlphaChart.chartEngineSource(baseUrl, apiKey)) or any backend that returns the same shapes:
@@ -35,6 +42,7 @@
  *   {
  *     layers: [['id', 'Menu label'], ...],
  *     defaults: ['id', ...],                 // turned on when options.layers is not given (optional)
+ *     plans: { id: 'basic' | 'growth' | ... }, // the lowest plan per layer (optional; without one a layer is never locked)
  *     apiLayers(ctx) -> ['strikes', ...],    // the API layers to request for the enabled ids (optional)
  *     attach(ctx) -> handle,                 // once per chart, before the candle series exists: series added here
  *   }                                        //   are drawn behind the candles
@@ -47,7 +55,8 @@
  *   items are HTML strings [spot, call wall, put wall, gamma flip, max pain] ('' when absent); insert or append in place
  *   (escape API text with util.esc). methods: {name: function} added to the object mount() returns (core names win).
  *   Panes a plugin adds under the price pane each get a fifth of the chart's height (at least 60 px).
- *   ctx: LW, chart, root, options, colors, candles, bars, symbol, resolution, intraday(), on(id), level(color, title),
+ *   ctx: LW, chart, root, options, colors, candles, bars, symbol, resolution, intraday(), on(id) (picked and in the plan),
+ *   plan, lockedPlan(plan), upgradeHref(what), level(color, title),
  *   addControl(element), query, setQuery({...}) (merged into the charts() request, then reloads; called from attach()
  *   it only sets the first request), note(text), util.
  */
@@ -64,8 +73,35 @@
   const MAX_DAYS = { '1m': 5, '5m': 31, '15m': 62, '1h': 366, '1d': 3660, '1w': 3660 };
   const CORE_LAYERS = [['levels', 'Walls & gamma flip'], ['maxpain', 'Max pain']];
   const DEFAULT_LAYERS = ['levels'];
+  /** Plans in order, and the lowest plan per layer. The API returns the key's plan (response.plan); a layer above it is locked. */
+  const PLANS = ['free', 'basic', 'growth', 'alpha', 'enterprise'];
+  const PLAN_NAMES = { free: 'Free', basic: 'Basic', growth: 'Growth', alpha: 'Alpha', enterprise: 'Enterprise' };
+  const CORE_PLANS = { levels: 'basic', maxpain: 'basic' };
+  const UPGRADE_URL = 'https://flashalpha.com/pricing';
+  /** API error codes in words for the page's readers (the code stays in the 'flashalpha:nodata' event). */
+  const ERRORS = {
+    api_key_required: 'Add your FlashAlpha key to show this chart.',
+    invalid_api_key: 'This FlashAlpha key is not valid.',
+    invalid_embed_key: 'This FlashAlpha key is not valid.',
+    embed_key_expired: 'This FlashAlpha key has expired.',
+    embed_key_revoked: 'This FlashAlpha key was revoked.',
+    origin_not_allowed: 'This FlashAlpha key is not allowed on {host}.',
+    too_many_requests: 'Too many requests. Retrying in a minute.',
+    too_many_key_lookups: 'Too many requests. Retrying in a minute.',
+    auth_unavailable: 'Chart data is unavailable right now. Retrying.',
+    questdb_unavailable: 'Chart data is unavailable right now. Retrying.',
+    network: 'Could not reach the chart server.',
+    timeout: 'The chart server did not answer.',
+  };
   const COLORS = { up: '#26a69a', down: '#ef5350', spotUp: '#5f8f8a', spotDown: '#9a6463', flip: '#e0c040', unverified: '#6b7080',
     maxpain: '#b388ff' };
+  /** options.theme 'dark' (default), 'light' or 'auto' (follows prefers-color-scheme). */
+  const THEMES = {
+    dark: { bg: '#0f1115', text: '#d6d9e0', muted: '#8a909c', line: '#262a33', grid: '#1b1e25', shadow: 'rgba(0,0,0,0.4)' },
+    light: { bg: '#ffffff', text: '#1f2430', muted: '#5b6270', line: '#d9dde4', grid: '#eef0f3', shadow: 'rgba(20,24,32,0.15)' },
+  };
+  /** Default key for every chart mounted later (FlashAlphaChart.setLicenseKey); options.apiKey wins. */
+  let licenseKey = null;
   // lightweight-charts places day and month ticks on UTC boundaries, so every time handed to it is ET wall-clock
   // written as if it were UTC ("ET-as-UTC" seconds), and the formatters read it back in UTC.
   const fmtTime = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -84,6 +120,20 @@
   const CSS = `
 .fac { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 240px;
   background: var(--fac-bg, #0f1115); color: var(--fac-text, #d6d9e0); font: 12px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; }
+.fac a.fac-lock { display: flex; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 4px; color: var(--fac-muted, #8a909c);
+  text-decoration: none; white-space: nowrap; }
+.fac a.fac-lock:hover { background: var(--fac-line, #262a33); color: var(--fac-text, #d6d9e0); }
+.fac-lock .plan, .fac-upsell .plan { font-size: 10px; padding: 1px 5px; border-radius: 3px; background: var(--fac-accent, #4f8cff); color: #fff; }
+.fac-more { display: none; flex-direction: column; gap: 6px; padding: 6px 6px 2px; margin-top: 4px; border-top: 1px solid var(--fac-line, #262a33); }
+.fac-more:not(:empty) { display: flex; }
+.fac-more select { max-width: none; }
+.fac-upsell { position: absolute; right: 64px; top: 6px; z-index: 5; display: flex; gap: 8px; align-items: center; padding: 4px 6px 4px 10px;
+  border: 1px solid var(--fac-line, #262a33); border-radius: 6px; background: var(--fac-bg, #0f1115); color: var(--fac-text, #d6d9e0);
+  box-shadow: 0 2px 10px var(--fac-shadow, rgba(0,0,0,0.4)); }
+.fac-upsell[hidden] { display: none; }
+.fac-upsell a { padding: 3px 10px; border-radius: 4px; background: var(--fac-accent, #4f8cff); color: #fff; text-decoration: none; font-weight: 600; }
+.fac-keys a { color: var(--fac-accent, #4f8cff); }
+.fac-narrow .fac-upsell { left: 8px; right: auto; top: auto; bottom: 34px; }
 .fac-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--fac-line, #262a33); }
 .fac-group { display: flex; gap: 2px; border: 1px solid var(--fac-line, #262a33); border-radius: 6px; padding: 2px; }
 .fac-group button, .fac-menu > button { background: none; border: 0; color: var(--fac-muted, #8a909c); padding: 3px 8px; border-radius: 4px; cursor: pointer; font: inherit; }
@@ -113,16 +163,17 @@
 .fac-keys:empty { display: none; }
 .fac-keys .k, .fac-keys .ch { color: var(--fac-muted, #8a909c); }
 .fac-keys .up { color: ${COLORS.up}; } .fac-keys .dn { color: ${COLORS.down}; }
-.fac-narrow .fac-keys { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-.fac-narrow .fac-keys > span { flex: none; }
-.fac-narrow [data-g="session"], .fac-narrow .fac-status { display: none; }
-.fac-brand { position: absolute; left: 10px; bottom: 38px; z-index: 3; display: flex; align-items: center; gap: 6px; height: 24px;
-  opacity: 0.75; text-decoration: none; color: #e6e9ef; font: 600 14px/1 system-ui, sans-serif; letter-spacing: 0.2px; }
-.fac-brand:hover { opacity: 1; }
-.fac-brand img { height: 22px; width: auto; }
-.fac-credit { padding: 0 10px 3px; text-align: right; font-size: 10px; }
+.fac-narrow .fac-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; }
+.fac-narrow .fac-keys > span:last-child { grid-column: 1 / -1; }
+.fac-narrow .fac-status { display: none; }
+.fac-narrow .fac-group button, .fac-narrow .fac-menu > button { min-height: 32px; min-width: 32px; padding: 3px 7px; }
+.fac-credit { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 10px 4px; font-size: 10px; }
 .fac-credit a { color: var(--fac-muted, #8a909c); text-decoration: none; }
-.fac-credit a:hover { text-decoration: underline; }`;
+.fac-credit a:hover { text-decoration: underline; }
+.fac-credit .fac-brand { display: flex; align-items: center; gap: 5px; color: var(--fac-text, #d6d9e0); font: 600 12px/1 system-ui, sans-serif;
+  opacity: 0.8; }
+.fac-credit .fac-brand:hover { opacity: 1; text-decoration: none; }
+.fac-brand img { height: 16px; width: auto; }`;
 
   function injectCss() {
     if (document.getElementById('fac-css')) return;
@@ -135,13 +186,17 @@
   /** The chart API: /v1/bars, /v1/charts, /v1/symbols under baseUrl ('' = same origin), with the key as X-Api-Key. */
   function chartEngineSource(baseUrl, apiKey) {
     const root = (baseUrl || '').replace(/\/$/, '');
-    const init = apiKey ? { headers: { 'X-Api-Key': apiKey } } : undefined;
+    const headers = apiKey ? { 'X-Api-Key': apiKey } : undefined;
     // Every failure becomes {error}: a network error, a CORS refusal or a proxy's HTML page must not leave the chart loading.
+    // A request that does not answer in 20 s is dropped, so it cannot stop the refreshes after it.
     const get = async url => {
+      const abort = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = abort ? setTimeout(() => abort.abort(), 20000) : null;
       try {
-        const r = await fetch(root + url, init);
+        const r = await fetch(root + url, { headers, signal: abort ? abort.signal : undefined });
         return await r.json().catch(() => ({ error: `http_${r.status}` }));
-      } catch (e) { return { error: 'network', message: String(e) }; }
+      } catch (e) { return { error: e && e.name === 'AbortError' ? 'timeout' : 'network', message: String(e) }; }
+      finally { if (timer) clearTimeout(timer); }
     };
     return {
       symbols: () => get('/v1/symbols'),
@@ -187,6 +242,18 @@
     plugins.push(plugin);
   }
 
+  /** Index of a plan name in PLANS; an unknown name counts as the lowest. */
+  const planRank = p => Math.max(0, PLANS.indexOf(String(p || '').toLowerCase()));
+  /** The key every chart mounted after this call uses when options.apiKey is not given. An embed key (fa_pk_…) belongs on a page. */
+  function setLicenseKey(key) { licenseKey = key || null; }
+  /** A secret API key in a public page can be copied and used anywhere: warn the developer, once per page. */
+  let warned = false;
+  function warnSecretKey(key) {
+    if (warned || !key || /^fa_pk_/.test(key) || !global.location || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname)) return;
+    warned = true;
+    if (global.console) console.warn('[flashalpha-chart] this page uses a secret FlashAlpha API key; use an embed key (fa_pk_…) locked to your domain');
+  }
+
   function mount(container, options) {
     const LW = (options && options.lightweightCharts) || global.LightweightCharts;
     if (!LW) throw new Error('FlashAlphaChart needs lightweight-charts 5 (global LightweightCharts or options.lightweightCharts)');
@@ -195,51 +262,86 @@
     const o = Object.assign({
       symbol: null, resolution: '5m', days: null, session: 'rth', layers: [...DEFAULT_LAYERS, ...pluginDefaults],
       controls: true, symbolButtons: true, exposure: true, source: null, baseUrl: '', apiKey: null, refresh: 60, background: null,
-      keyLevels: true, brand: null,
+      keyLevels: true, brand: null, theme: 'dark', upgradeUrl: UPGRADE_URL, debug: false,
     }, options || {});
+    if (!o.apiKey) o.apiKey = licenseKey;
+    if (!o.source) warnSecretKey(o.apiKey);
     const source = o.source || chartEngineSource(o.baseUrl, o.apiKey);
     const layerList = [...CORE_LAYERS, ...plugins.flatMap(p => p.layers)];
+    const layerPlan = Object.assign({}, CORE_PLANS, ...plugins.map(p => p.plans || {}));
     const state = { symbol: o.symbol, res: o.resolution, days: o.days || DEFAULT_DAYS[o.resolution] || 5, symbols: [], loading: 0,
-      layers: new Set(o.exposure ? o.layers : []), noData: null };
+      layers: new Set(o.exposure ? o.layers : []), noData: null, plan: null };
     const query = {};                       // extra charts() parameters, set by plugins
     const intraday = () => INTRADAY.includes(state.res);
-    const on = layer => state.layers.has(layer);
+    /** True when the key's plan (known after the first charts() answer) is below `plan`. No plan from the API: nothing is locked. */
+    const lockedPlan = plan => state.plan != null && planRank(state.plan) < planRank(plan);
+    const locked = layer => lockedPlan(layerPlan[layer] || 'free');
+    /** A layer is drawn (and requested) when it is picked and the plan includes it. */
+    const on = layer => state.layers.has(layer) && !locked(layer);
+    /** The upgrade link, tagged so flashalpha.com can count where buyers came from. */
+    const upgradeHref = what => {
+      const u = new URL(o.upgradeUrl, global.location ? global.location.href : undefined);
+      u.searchParams.set('utm_source', 'chart'); u.searchParams.set('utm_medium', 'embed'); u.searchParams.set('utm_campaign', 'upgrade');
+      if (what) u.searchParams.set('utm_content', what);
+      if (global.location && global.location.hostname) u.searchParams.set('utm_term', global.location.hostname);
+      return u.toString();
+    };
 
     const root = document.createElement('div');
     root.className = 'fac';
-    if (o.background) root.style.setProperty('--fac-bg', o.background);
     root.innerHTML = `${o.controls ? `<div class="fac-bar">
         ${o.symbolButtons ? '<div class="fac-group" data-g="symbols"></div>' : ''}
         <div class="fac-group" data-g="res"></div><div class="fac-group" data-g="range"></div><div class="fac-group" data-g="session"></div>
-        ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"></div></div>' : ''}
+        ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"><div class="fac-layers"></div><div class="fac-more"></div></div></div>' : ''}
         <span class="fac-status"></span></div>` : ''}
       <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
-        ${o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>` : ''}</div>
+        <div class="fac-upsell" hidden></div></div>
       ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
-      ${o.brand ? '<div class="fac-credit"><a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>' : ''}`;
+      ${o.brand ? `<div class="fac-credit"><a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a><a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
     container.appendChild(root);
     const $ = sel => root.querySelector(sel);
-    const status = text => { const s = $('.fac-status'); if (s) s.textContent = text; };
+    const status = text => { const s = $('.fac-status'); if (s) s.textContent = o.debug ? text : ''; };
+    const extraControls = [];                  // [element, placeholder] for controls that move on narrow widths
+    /** Keeps `el` (already in the toolbar) where it is on wide charts; on narrow ones it goes into the Layers panel. */
+    const movable = el => { const mark = document.createComment('fac'); el.after(mark); extraControls.push([el, mark]); };
+    if ($('.fac-menu') && $('[data-g="session"]')) movable($('[data-g="session"]'));
 
     const chart = LW.createChart($('.fac-canvas'), {
       autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: '#8a909c', panes: { separatorColor: '#262a33' }, attributionLogo: !o.brand },
-      grid: { vertLines: { color: '#1b1e25' }, horzLines: { color: '#1b1e25' } },
+      layout: { background: { color: 'transparent' }, attributionLogo: !o.brand },
       crosshair: { mode: LW.CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#262a33' },
-      timeScale: { borderColor: '#262a33', timeVisible: true, secondsVisible: false,
+      timeScale: { timeVisible: true, secondsVisible: false,
         tickMarkFormatter: (t, type) => (type <= 2 ? fmtDay : fmtClock).format(new Date(t * 1000)) },
       localization: { timeFormatter: t => intraday() ? fmtTime.format(new Date(t * 1000)) + ' ET' : fmtDay.format(new Date(t * 1000)) },
     });
-    // A level is a dot per bar (its strike jumps between minutes; a connected line would draw a wall of verticals) and a
-    // dotted line at its latest value across the chart.
-    const level = (color, title) => chart.addSeries(LW.LineSeries, { color, title, lineVisible: false, pointMarkersVisible: true,
-      pointMarkersRadius: 1.5, priceLineVisible: true, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1, priceLineColor: color,
-      lastValueVisible: true, crosshairMarkerVisible: false });
+    // Theme: CSS variables on the root and the same colours in lightweight-charts. 'auto' follows the reader's system setting.
+    const dark = global.matchMedia ? global.matchMedia('(prefers-color-scheme: dark)') : null;
+    function applyTheme() {
+      const t = THEMES[o.theme === 'auto' ? (dark && !dark.matches ? 'light' : 'dark') : o.theme] || THEMES.dark;
+      for (const [k, v] of Object.entries(t)) root.style.setProperty('--fac-' + k, v);
+      if (o.background) root.style.setProperty('--fac-bg', o.background);
+      chart.applyOptions({ layout: { textColor: t.muted, panes: { separatorColor: t.line } },
+        grid: { vertLines: { color: t.grid }, horzLines: { color: t.grid } },
+        rightPriceScale: { borderColor: t.line }, timeScale: { borderColor: t.line } });
+    }
+    applyTheme();
+    const onScheme = () => { if (o.theme === 'auto') applyTheme(); };
+    if (dark && dark.addEventListener) dark.addEventListener('change', onScheme);
+    // A level is a step line through the day (where the wall or the flip stood at each bar; a gap where it is unknown) and a
+    // dotted line at its latest value across the chart. On a phone the axis label keeps the colour and drops the title.
+    const levels = [];
+    const level = (color, title) => {
+      const x = chart.addSeries(LW.LineSeries, { color, title, lineWidth: 1, lineType: LW.LineType.WithSteps,
+        priceLineVisible: true, priceLineStyle: LW.LineStyle.Dotted, priceLineWidth: 1, priceLineColor: color,
+        lastValueVisible: true, crosshairMarkerVisible: false });
+      levels.push([x, title]);
+      return x;
+    };
 
     let candles = null, bars = [], byTime = new Map(), gexByTime = new Map(), notes = [], started = false;
     const ctx = {
-      LW, chart, root, options: o, colors: COLORS, level, intraday, on,
+      LW, chart, root, options: o, colors: COLORS, level, intraday, on, lockedPlan, upgradeHref,
+      get plan() { return state.plan; },
       get candles() { return candles; },
       get bars() { return bars; },
       get symbol() { return state.symbol; },
@@ -247,7 +349,7 @@
       get query() { return Object.assign({}, query); },
       setQuery(x) { Object.assign(query, x); return started ? load() : Promise.resolve(); },
       /** Puts a control into the toolbar before the status text; false when the toolbar is hidden. */
-      addControl(el) { const st = $('.fac-status'); if (!st) return false; st.before(el); return true; },
+      addControl(el) { const st = $('.fac-status'); if (!st) return false; st.before(el); if ($('.fac-menu')) movable(el); return true; },
       note(text) { notes.push(text); },
       util: { etTime, dayOf, sessionOf, floorIndex, esc, num, big, RES_SECONDS },
     };
@@ -273,19 +375,26 @@
     call('ready');
     // Plugin panes under the price take a fifth of the chart each; re-applied on every resize because the container may
     // still be 0 px tall when a pane is added.
-    const brand = $('.fac-brand');
     const sizePanes = () => {
       const panes = chart.panes(), h = $('.fac-body').clientHeight;
       if (h > 0) for (let i = 1; i < panes.length; i++) panes[i].setHeight(Math.max(60, Math.round(h * 0.2)));
-      if (brand) requestAnimationFrame(() => {                // the brand logo sits at the bottom of the price pane
-        const ph = chart.panes()[0].getHeight();
-        if (ph > 0) { brand.style.top = (ph - 34) + 'px'; brand.style.bottom = 'auto'; }
-      });
     };
-    // Phones: resolutions, ranges and Layers only, and a one-line legend.
+    // Phones: resolutions, ranges and Layers in the toolbar; the session and the plugins' controls move into the Layers panel
+    // ("more"); a one-line legend; level labels on the price axis without their titles.
+    const placeControls = narrow => {
+      const more = $('.fac-more');
+      if (!more) return;
+      for (const [el, mark] of extraControls) if (narrow) more.appendChild(el); else mark.before(el);
+    };
     const resizeObserver = new ResizeObserver(() => {
       const narrow = root.clientWidth < 560;
-      if (narrow !== root.classList.contains('fac-narrow')) { root.classList.toggle('fac-narrow', narrow); renderLegend(null, null); }
+      if (narrow !== root.classList.contains('fac-narrow')) {
+        root.classList.toggle('fac-narrow', narrow);
+        placeControls(narrow);
+        renderLegend(null, null);
+      }
+      const tiny = root.clientWidth < 480;
+      if (tiny !== state.tiny) { state.tiny = tiny; for (const [x, title] of levels) x.applyOptions({ title: tiny ? '' : title }); }
       sizePanes();
     });
     resizeObserver.observe(root);
@@ -302,10 +411,12 @@
       }
       const price = b ? `<span class="${b.close >= b.open ? 'up' : 'dn'}">${num(b.close)}</span>`
         + `<span class="k">O</span> ${num(b.open)}<span class="k">H</span> ${num(b.high)}<span class="k">L</span> ${num(b.low)}`
-        + (b.volume != null ? `<span class="k">Vol</span> ${big(b.volume)}` : '') + `<span class="k">${esc(b.source)}${intraday() ? ' · ' + sessionOf(b.time) : ''}</span>` : '';
+        + (b.volume != null ? `<span class="k">Vol</span> ${big(b.volume)}` : '')
+        + (b.source === 'spot' ? '<span class="k">index spot</span>' : intraday() && sessionOf(b.time) !== 'rth' ? `<span class="k">${sessionOf(b.time)}-market</span>` : '') : '';
       const lines = [];
       if (g) {
-        const parts = [`flip ${num(g.gamma_flip && g.gamma_flip.last)} (${(g.gamma_flip && g.gamma_flip.status) || '—'})`,
+        const flipOk = g.gamma_flip && g.gamma_flip.status === 'available';
+        const parts = [`flip ${num(g.gamma_flip && g.gamma_flip.last)}${flipOk || !g.gamma_flip || g.gamma_flip.last == null ? '' : ' (unverified)'}`,
           `call wall ${num(g.call_wall)}`, `put wall ${num(g.put_wall)}`];
         if (on('maxpain') && g.max_pain != null) parts.push(`max pain ${num(g.max_pain)}`);
         call('legendLevels', g, parts);
@@ -339,12 +450,27 @@
       buttons('res', RESOLUTIONS.map(r => [r, r]), v => v === state.res, v => api.setResolution(v));
       buttons('range', RANGES.filter(([, d]) => d <= (MAX_DAYS[state.res] || d)), v => v === state.days, v => api.setRange(v));
       buttons('session', [['RTH', 'rth'], ['ETH', 'eth']], v => v === o.session, v => api.setSession(v));
-      const panel = $('.fac-panel');
+      const panel = $('.fac-layers');
       if (panel) {
-        panel.innerHTML = layerList.map(([k, label]) => `<label><input type="checkbox" value="${esc(k)}" ${on(k) ? 'checked' : ''}> ${esc(label)}</label>`).join('');
+        // A layer above the key's plan is a link to the upgrade page, with the plan it needs.
+        panel.innerHTML = layerList.map(([k, label]) => locked(k)
+          ? `<a class="fac-lock" href="${esc(upgradeHref(k))}" target="_blank" rel="noopener">🔒 ${esc(label)} <span class="plan">${esc(PLAN_NAMES[layerPlan[k]] || layerPlan[k])}</span></a>`
+          : `<label><input type="checkbox" value="${esc(k)}" ${on(k) ? 'checked' : ''}> ${esc(label)}</label>`).join('');
         panel.querySelectorAll('input').forEach(i => { i.onchange = () => api.setLayers(
           [...panel.querySelectorAll('input:checked')].map(x => x.value)); });
       }
+    }
+
+    /** "Upgrade" over the chart while a layer that is on needs a higher plan than the key's: names them and the lowest plan. */
+    function renderUpsell() {
+      const box = $('.fac-upsell');
+      const wanted = [...state.layers].filter(locked);
+      if (!wanted.length) { box.hidden = true; return; }
+      const need = wanted.map(k => layerPlan[k]).sort((a, b) => planRank(a) - planRank(b))[0];
+      const names = layerList.filter(([k]) => wanted.includes(k) && layerPlan[k] === need).map(([, l]) => l);
+      box.innerHTML = `<span>🔒 ${esc(names.slice(0, 2).join(', '))}${names.length > 2 ? ` +${names.length - 2}` : ''}</span>`
+        + `<span class="plan">${esc(PLAN_NAMES[need] || need)}</span><a href="${esc(upgradeHref(wanted[0]))}" target="_blank" rel="noopener">Upgrade</a>`;
+      box.hidden = false;
     }
     let destroyed = false;
     const closeMenu = () => menu && menu.classList.remove('open');
@@ -398,7 +524,9 @@
       const box = $('.fac-empty');
       state.noData = error;                                         // an unknown symbol is not polled again
       if (!error) { box.style.display = 'none'; return; }
-      box.textContent = error === 'unknown_symbol' || error === 'no bars' ? `No chart data for ${state.symbol} yet.` : `Chart data unavailable (${error}).`;
+      const host = global.location ? global.location.hostname : 'this site';
+      box.textContent = error === 'unknown_symbol' || error === 'no bars' ? `No chart data for ${state.symbol} yet.`
+        : (ERRORS[error] || 'Chart data is unavailable right now.').replace('{host}', host);
       box.style.display = 'flex';
       container.dispatchEvent(new CustomEvent('flashalpha:nodata', { bubbles: true, detail: { symbol: state.symbol, error } }));
     }
@@ -421,7 +549,7 @@
           Object.assign({}, query, { session: 'rth', layers: ['exposure'] }))).catch(() => ({})) : null,
       ]);
       if (ticket !== state.loading || destroyed) return;      // a newer load (or destroy) superseded this one
-      if (keepView && (r.error || !Array.isArray(r.bars))) { status(`refresh failed: ${r.error || 'no bars'}`); return; }
+      if (keepView && (r.error || !Array.isArray(r.bars))) { status(`refresh failed: ${r.error || 'no bars'}`); return; }   // keep what is drawn
       const view = keepView ? currentView() : null;
       if (r.error || !Array.isArray(r.bars)) {
         status(`${r.error || 'no bars'}${r.message ? ': ' + r.message : ''}`);
@@ -445,16 +573,19 @@
       volume.setData(bars.map(b => b.volume == null ? { time: b.time } : { time: b.time, value: b.volume,
         color: b.close >= b.open ? 'rgba(38,166,154,0.35)' : 'rgba(239,83,80,0.35)' }));
       notes = [];
-      if (c.error) notes.push(`layers: ${c.error}`);
-      // A layer the key's plan does not include comes back as status "gated" with no data.
+      if (c.error && o.debug) notes.push(`layers: ${c.error}`);
+      // The key's plan: layers above it are locked in the menu and named in the Upgrade box. A layer the plan does not include
+      // also comes back as status "gated" with no data (an API without a plan field).
+      if (c && 'plan' in c && c.plan !== state.plan) { state.plan = c.plan; renderControls(); }
       const gated = layers.filter(k => c.layers && c.layers[k] && c.layers[k].status === 'gated');
-      if (gated.length) notes.push(`not in your plan: ${gated.join(', ')}`);
+      renderUpsell();
       drawExposure(layers.includes('exposure') ? c.exposure || [] : []);
-      renderKeyLevels(intraday() ? c.exposure || [] : (k && k.exposure) || []);
+      const keysGated = gated.includes('exposure') || (k && k.layers && k.layers.exposure && k.layers.exposure.status === 'gated');
+      renderKeyLevels(keysGated ? null : intraday() ? c.exposure || [] : (k && k.exposure) || []);
       call('draw', c);
       requestAnimationFrame(sizePanes);                     // a pane added in this load is laid out on the next frame
-      if (!intraday() && state.picked && ['levels', 'maxpain'].some(on)) notes.push('GEX levels: intraday resolutions only');
-      else if (layers.includes('exposure') && !gated.includes('exposure') && !(c.exposure || []).length) notes.push('GEX: no rows in this window (sampled during RTH)');
+      if (!intraday() && state.picked && ['levels', 'maxpain'].some(on)) notes.push('GEX levels: pick 1m to 1h');
+      else if (layers.includes('exposure') && !gated.includes('exposure') && !(c.exposure || []).length) notes.push('GEX levels: none yet in this window (they start at the 9:30 ET open)');
       restoreView(view);
       status(`${bars.length} bars · ${Math.round(performance.now() - t0)} ms`);
       renderLegend(null, null);
@@ -503,6 +634,11 @@
      */
     function renderKeyLevels(rows) {
       if (!keys) return;
+      if (rows === null) {                     // the plan has no exposure: say what is there and where to get it
+        keys.innerHTML = `<span><span class="k">Key levels</span> 🔒 call wall, put wall, gamma flip: ${esc(PLAN_NAMES[layerPlan.levels] || 'Basic')} plan`
+          + ` · <a href="${esc(upgradeHref('key_levels'))}" target="_blank" rel="noopener">Upgrade</a></span>`;
+        return;
+      }
       const last = rows.length ? rows[rows.length - 1] : null;
       if (!last) { keys.innerHTML = ''; return; }
       const day = dayOf(etTime(last.ts));
@@ -532,13 +668,18 @@
       /** 'rth' (regular hours, the default) or 'eth' (with pre- and post-market). */
       setSession(x) { o.session = x; renderControls(); return load(); },
       /** Any of 'levels', 'maxpain', plus the ids of registered layer plugins. */
-      setLayers(list) { state.layers = new Set(list); state.picked = true; renderControls(); return load(); },
+      setLayers(list) { state.layers = new Set(list); state.picked = true; renderControls(); renderUpsell(); return load(); },
+      /** 'dark', 'light' or 'auto'. */
+      setTheme(t) { o.theme = t; applyTheme(); },
+      /** The key's plan from the last answer ('free', 'basic', ...), or null before it / without auth. */
+      get plan() { return state.plan; },
       get layers() { return [...state.layers]; },
       reload: () => load(),
       destroy() {
         destroyed = true; state.loading++;
         clearInterval(timer);
         document.removeEventListener('click', closeMenu);
+        if (dark && dark.removeEventListener) dark.removeEventListener('change', onScheme);
         call('destroy');
         resizeObserver.disconnect(); chart.remove(); root.remove();
       },
@@ -549,7 +690,11 @@
 
     // Auto-refresh: every `refresh` seconds while the page is visible (0 = off).
     // Skipped while a load is running, so a refresh never replaces a load the user started.
-    const timer = o.refresh > 0 ? setInterval(() => { if (!document.hidden && !pending && state.noData !== 'unknown_symbol') load({ keepView: true }); }, o.refresh * 1000) : null;
+    // A chart whose element left the page (a single-page app moved on) stops itself instead of polling with the key.
+    const timer = o.refresh > 0 ? setInterval(() => {
+      if (!root.isConnected) { api.destroy(); return; }
+      if (!document.hidden && !pending && state.noData !== 'unknown_symbol') load({ keepView: true });
+    }, o.refresh * 1000) : null;
 
     (async () => {
       try { state.symbols = await source.symbols(); } catch (e) { state.symbols = []; }
@@ -565,8 +710,8 @@
   }
 
   global.FlashAlphaChart = {
-    mount, chartEngineSource, registerLayers,
+    mount, chartEngineSource, registerLayers, setLicenseKey, plans: PLANS,
     get layers() { return [...CORE_LAYERS, ...plugins.flatMap(p => p.layers)].map(l => l[0]); },
-    version: '0.1.0',
+    version: '0.3.0',
   };
 })(typeof window !== 'undefined' ? window : globalThis);
