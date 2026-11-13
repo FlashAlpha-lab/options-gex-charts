@@ -127,8 +127,7 @@
 <main>
   <section class="wrap" id="demo" aria-label="Live demo">
     <div class="chart-frame"><div id="chart"></div></div>
-    <p class="note chart-note">Live demo with generated data; the page makes no data requests. Drag to scroll, use the wheel or
-      pinch to zoom, and open the <b>Layers</b> menu to turn layers on or off.</p>
+    <p class="note chart-note" id="demo-note"></p>
   </section>
 
   <section class="wrap" id="read">
@@ -282,8 +281,8 @@
     </div>
 
     <table class="plans">
-      <tr><th><span class="plan basic">Basic</span></th><td>Call wall, put wall, gamma flip, max pain, net GEX pane.</td></tr>
-      <tr><th><span class="plan growth">Growth</span></th><td>Everything in Basic, plus the strike heatmap, GEX profile, 0DTE scope and magnet, level events, expected move, and metrics.</td></tr>
+      <tr><th><span class="plan basic">Basic</span></th><td>Call wall, put wall, gamma flip, max pain, 0DTE magnet, net GEX pane, vanna / charm / delta exposure panes.</td></tr>
+      <tr><th><span class="plan growth">Growth</span></th><td>Everything in Basic, plus the strike heatmap and GEX profile with gamma, delta, vanna and charm lenses, session replay, 0DTE scope, level events, expected move, and metrics.</td></tr>
       <tr><th><span class="plan alpha">Alpha</span></th><td>Everything in Growth, plus the live open interest basis.</td></tr>
     </table>
     <p class="note" style="margin-top: 12px">For plans and keys, see <a href="https://flashalpha.com/?utm_source=github-pages&utm_medium=referral&utm_campaign=options-gex-charts">flashalpha.com</a>.</p>
@@ -309,7 +308,7 @@
     <ul class="facts">
       <li><b>Your own data:</b> pass a <code>source</code> object with <code>symbols</code>, <code>bars</code>, and
         <code>charts</code> methods. Times are UTC ISO 8601; a <code>null</code> value is drawn as a gap.</li>
-      <li><b>FlashAlpha data:</b> pass an embed key (<code>fa_pk_…</code>). It is read-only, works only for chart data, and only on the domains you list when you create it.</li>
+      <li><b>FlashAlpha data:</b> pass an embed key (<code>fa_pk_…</code>). It is read-only, works only for chart data, and only on the domains you list when you create it. See <a href="https://github.com/FlashAlpha-lab/options-gex-charts/blob/main/docs/embed-keys.md">Embed keys</a>.</li>
       <li><b>Resolutions:</b> <code>1m</code>, <code>5m</code>, <code>15m</code>, <code>1h</code>, <code>1d</code>,
         <code>1w</code>; regular hours or extended hours. Levels are drawn on intraday resolutions.</li>
       <li><b>Layout:</b> the chart fills its container, refreshes every 60 seconds while the page is visible, and switches to a
@@ -413,10 +412,29 @@
       };
     },
   });
-  FlashAlphaChart.mount(document.getElementById('chart'), {
-    symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain', 'vwap'], source, refresh: 0, symbolButtons: false,
-    brand: { logo: 'docs/flashalpha-logo.png', href: 'https://flashalpha.com', name: 'FlashAlpha' },
-  });
+  const brand = { logo: 'docs/flashalpha-logo.png', href: 'https://flashalpha.com', name: 'FlashAlpha' };
+  const el = document.getElementById('chart'), note = document.getElementById('demo-note');
+  function generated() {
+    note.innerHTML = 'Live demo with generated data. Drag to scroll, use the wheel or pinch to zoom, and open the <b>Layers</b> menu to turn layers on or off.';
+    FlashAlphaChart.mount(el, { symbol: 'DEMO', resolution: '5m', layers: ['levels', 'maxpain', 'vwap'], source, refresh: 0,
+      symbolButtons: false, brand });
+  }
+  // Real SPX, SPY, QQQ and stocks from the FlashAlpha chart API, 15 minutes delayed, with an embed key locked to this site.
+  // Without the key, or when the API cannot answer, the chart falls back to generated data.
+  const DEMO_KEY = '';
+  const CHART_API = 'https://charts.flashalpha.com';
+  if (!DEMO_KEY) generated();
+  else {
+    const s = document.createElement('script');
+    s.src = CHART_API + '/flashalpha-chart-layers.js';
+    s.onload = s.onerror = () => {
+      const chart = FlashAlphaChart.mount(el, { symbol: 'SPX', resolution: '5m', apiKey: DEMO_KEY, baseUrl: CHART_API, brand,
+        layers: ['levels', 'maxpain', 'netgex', 'heatmap', 'profile'] });
+      el.addEventListener('flashalpha:nodata', () => { chart.destroy(); generated(); }, { once: true });
+      note.innerHTML = 'Real FlashAlpha data, <b>15 minutes delayed</b>. Pick a symbol, drag to scroll, use the wheel or pinch to zoom, and open the <b>Layers</b> menu.';
+    };
+    document.head.appendChild(s);
+  }
 </script>
 </body>
 </html>

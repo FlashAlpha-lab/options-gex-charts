@@ -28,15 +28,19 @@ Content-Type: application/json
   addresses are refused.
 - `ttl_seconds` (optional): 300 up to 30 days; default 30 days. A site with a backend mints short-lived keys per page view;
   a static site mints a 30-day key and renews it.
+- `plan` (optional): a plan up to yours (`free`, `basic`, ...), for a page that should show fewer layers.
+- `delay_minutes` (optional): 15 to 1440. A delayed key reads nothing newer than now minus the delay (`/latest` is refused
+  with `403 delayed_key`), and may live up to 365 days.
 
 Answer `200`:
 
 ```json
-{ "key": "fa_pk_…", "id": "424fba899475ef1f", "plan": "growth", "domains": ["example.com"], "expires_at": "2026-12-16T10:00:00Z" }
+{ "key": "fa_pk_…", "id": "424fba899475ef1f", "plan": "growth", "domains": ["example.com"], "expires_at": "2026-12-16T10:00:00Z",
+  "delay_minutes": 0 }
 ```
 
 The key carries the plan it was minted with until it expires. Errors: `403 secret_key_required` (an embed key tried to mint),
-`400 domains_required`, `400 invalid_ttl`, `404 embed_keys_off`. FlashAlpha can revoke a key by its `id`.
+`400 domains_required`, `400 invalid_ttl`, `400 invalid_plan`, `400 invalid_delay`, `404 embed_keys_off`. FlashAlpha can revoke a key by its `id`.
 
 ## Plans and layers
 
@@ -112,7 +116,7 @@ Answer:
     "net_dex": 1.1e9, "net_vex": -3.2e8, "net_chex": 4.0e7,
     "as_of": "2026-11-13T19:59:00Z", "data_quality_score": 0.98, "snapshot_age_s": 12
   }],
-  "strikes": [{ "ts": "2026-11-13T19:55:00Z", "rows": [[5050, 1.2e8, 10234, 8122], [5055, -4.0e7, 7120, 9001]] }],
+  "strikes": [{ "ts": "2026-11-13T19:55:00Z", "rows": [[5050, 1.2e8, 10234, 8122, 2.1e9, -3.0e7, 4.0e6], [5055, -4.0e7, 7120, 9001, -1.4e9, 1.2e7, null]] }],
   "events": [{ "ts": "…", "kind": "call_wall", "event": "rejected", "level_id": "…", "level": 5075, "prev_level": null,
                "strength": 0.7, "detail": null, "model_ver": "…" }],
   "daily": [{ "ts": "2026-11-13T00:00:00Z", "open_call_wall": 5075, "open_put_wall": 5025, "open_gamma_flip": 5030,
@@ -128,8 +132,8 @@ Answer:
 - `exposure`: one row per bar; the level fields are the last value in the bar, `spot`, `net_gex` and `gamma_flip` also give
   first / min / max. `gamma_flip.status` is `available` once the flip is certified. `regime` is `positive_gamma` or
   `negative_gamma`.
-- `strikes`: per bar, the last 5-minute snapshot of net GEX per strike: `[strike, net_gex, call_oi, put_oi]`, strikes within 2%
-  of the window's price range.
+- `strikes`: per bar, the last 5-minute snapshot per strike: `[strike, net_gex, call_oi, put_oi, net_dex, net_vex, net_chex]`
+  (gamma, delta, vanna and charm exposure), strikes within 2% of the window's price range.
 - `events`: level touches, rejections, breaks, flip crossings, regime flips, and day markers (`kind: "marker"`: opex, earnings,
   expiry roll, OI change; `detail` is JSON text).
 - `daily`: one row per session (open levels, expected move, IV30, RV20, VRP, VIX state, opex, earnings).
@@ -148,7 +152,7 @@ Every error is `{ "error": "<code>" }` with the HTTP status.
 |---|---|
 | 400 | `invalid_resolution`, `invalid_range`, `range_too_long`, `invalid_ttl`, `invalid_layers`, `invalid_scope_or_basis`, `invalid_session`, `invalid_adjust` |
 | 401 | `api_key_required`, `invalid_api_key`, `invalid_embed_key`, `embed_key_expired`, `embed_key_revoked` |
-| 403 | `origin_not_allowed` (embed key on another domain) |
+| 403 | `origin_not_allowed` (embed key on another domain), `delayed_key` (a delayed key on `/latest` or minting) |
 | 404 | `unknown_symbol` |
 | 429 | `too_many_requests` (per key: 600 a minute for embed keys and API keys), `too_many_key_lookups` (unknown keys per client) |
 | 503 | `auth_unavailable`, `questdb_unavailable` (retry) |

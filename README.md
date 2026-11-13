@@ -90,7 +90,8 @@ browser console when a page uses a secret key.
 
 The layers you get depend on your FlashAlpha plan. A layer above your plan shows a lock in the Layers menu and a link to
 upgrade; layers you turned on that your plan doesn't include are named in an **Upgrade** box over the chart. The full API
-(endpoints, payloads, errors) is in the [chart API reference](docs/api.md).
+(endpoints, payloads, errors) is in the [chart API reference](docs/api.md); lifetimes, delayed keys and errors are in
+[Embed keys](docs/embed-keys.md).
 
 ## Embed a GEX chart in one line
 
