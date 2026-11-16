@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2 — 2026-11-16
+
+- More than 8 symbols show as one select instead of a strip of buttons.
+- The data window is rounded to the minute, so readers of one page ask the same query (cache-friendly).
+
 ## 0.3.1 — 2026-11-16
 
 - `note`: a line under the chart saying the levels are model estimates (default on; `''` hides it).

@@ -149,6 +149,8 @@
 .fac-group { display: flex; gap: 2px; border: 1px solid var(--fac-line, #262a33); border-radius: 6px; padding: 2px; }
 .fac-group button, .fac-menu > button { background: none; border: 0; color: var(--fac-muted, #8a909c); padding: 3px 8px; border-radius: 4px; cursor: pointer; font: inherit; }
 .fac-group button:hover, .fac-menu > button:hover { color: var(--fac-text, #d6d9e0); }
+.fac-group select { border: 0; padding: 2px 2px; font-weight: 600; max-width: 110px; }
+.fac select option { background: var(--fac-bg, #0f1115); color: var(--fac-text, #d6d9e0); }
 .fac-group button.on { background: var(--fac-accent, #4f8cff); color: #fff; }
 .fac select { background: transparent; color: inherit; border: 1px solid var(--fac-line, #262a33); border-radius: 6px; padding: 3px 4px; font: inherit;
   max-width: 170px; }
@@ -460,7 +462,13 @@
       }
     }
     function renderControls() {
-      buttons('symbols', state.symbols.map(x => [x.symbol, x.symbol]), v => v === state.symbol, v => api.setSymbol(v));
+      // A few symbols are buttons; a longer list is one select, so the toolbar never becomes a strip of tickers.
+      const symBox = root.querySelector('[data-g="symbols"]');
+      if (symBox && state.symbols.length > 8) {
+        const names = state.symbols.map(x => x.symbol).sort();
+        symBox.innerHTML = `<select title="Symbol">${names.map(n => `<option value="${esc(n)}"${n === state.symbol ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+        symBox.querySelector('select').onchange = e => api.setSymbol(e.target.value);
+      } else buttons('symbols', state.symbols.map(x => [x.symbol, x.symbol]), v => v === state.symbol, v => api.setSymbol(v));
       buttons('res', RESOLUTIONS.map(r => [r, r]), v => v === state.res, v => api.setResolution(v));
       buttons('range', RANGES.filter(([, d]) => d <= (MAX_DAYS[state.res] || d)), v => v === state.days, v => api.setRange(v));
       buttons('session', [['RTH', 'rth'], ['ETH', 'eth']], v => v === o.session, v => api.setSession(v));
@@ -508,7 +516,8 @@
       // shows its last sessions and today's exposure rows.
       const meta = state.symbols.find(x => x.symbol === state.symbol);
       const last = meta && meta.last_bar ? Date.parse(meta.last_bar) + 60e3 : 0;
-      const to = new Date(Math.max(Date.now(), last));
+      // Rounded up to the minute: readers of the same page then ask the same window, which the API answers from its cache.
+      const to = new Date(Math.ceil(Math.max(Date.now(), last) / 60e3) * 60e3);
       return { from: new Date(to.getTime() - Math.min(state.days, MAX_DAYS[state.res] || state.days) * 86400e3), to };
     }
 
