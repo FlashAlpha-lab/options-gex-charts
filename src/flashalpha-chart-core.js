@@ -183,6 +183,16 @@
 .fac-credit { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 10px 4px; font-size: 10px; }
 .fac-credit a { color: var(--fac-muted, #8a909c); text-decoration: none; }
 .fac-credit a:hover { text-decoration: underline; }
+.fac-bar .fac-brand { display: flex; align-items: center; gap: 6px; margin-left: 4px; color: var(--fac-text, #d6d9e0);
+  font: 600 13px/1 system-ui, sans-serif; text-decoration: none; opacity: 0.9; }
+.fac-bar .fac-brand:hover { opacity: 1; }
+.fac-bar .fac-brand img { height: 18px; }
+.fac-narrow .fac-bar .fac-brand span { display: none; }
+.fac select, .fac select option, .fac select optgroup { background-color: var(--fac-bg, #0f1115); color: var(--fac-text, #d6d9e0); }
+.fac-panel .fac-field { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 2px 6px; color: var(--fac-muted, #8a909c); font-size: 11px; cursor: default; white-space: normal; }
+.fac-panel .fac-field:hover { background: none; }
+.fac-field select { width: 100%; max-width: none; color: var(--fac-text, #d6d9e0); }
+.fac-panel { min-width: 230px; }
 .fac-credit .fac-brand { display: flex; align-items: center; gap: 5px; color: var(--fac-text, #d6d9e0); font: 600 12px/1 system-ui, sans-serif;
   opacity: 0.8; }
 .fac-credit .fac-brand:hover { opacity: 1; text-decoration: none; }
@@ -303,17 +313,19 @@
       return u.toString();
     };
 
+    // The brand logo sits at the right end of the toolbar (under the chart when the toolbar is hidden).
+    const brandLink = o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>` : '';
     const root = document.createElement('div');
     root.className = 'fac';
     root.innerHTML = `${o.controls ? `<div class="fac-bar">
         ${o.symbolButtons ? '<div class="fac-group" data-g="symbols"></div>' : ''}
         <div class="fac-group" data-g="res"></div><div class="fac-group" data-g="range"></div><div class="fac-group" data-g="session"></div>
         ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"><div class="fac-layers"></div><div class="fac-more"></div></div></div>' : ''}
-        <span class="fac-status"></span></div>` : ''}
+        <span class="fac-status"></span>${brandLink}</div>` : ''}
       <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
         <div class="fac-upsell" hidden></div></div>
       ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
-      ${o.brand ? `<div class="fac-credit"><a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>${o.note && o.exposure ? `<span class="fac-note" title="${esc(o.note)}">${esc(o.note)}</span>` : ''}<a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
+      ${o.brand ? `<div class="fac-credit">${o.controls ? '' : brandLink}${o.note && o.exposure ? `<span class="fac-note" title="${esc(o.note)}">${esc(o.note)}</span>` : ''}<a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
     container.appendChild(root);
     const $ = sel => root.querySelector(sel);
     const status = text => { const s = $('.fac-status'); if (s) s.textContent = o.debug ? text : ''; };
@@ -364,8 +376,22 @@
       get resolution() { return state.res; },
       get query() { return Object.assign({}, query); },
       setQuery(x) { Object.assign(query, x); return started ? load() : Promise.resolve(); },
-      /** Puts a control into the toolbar before the status text; false when the toolbar is hidden. */
-      addControl(el) { const st = $('.fac-status'); if (!st) return false; st.before(el); if ($('.fac-menu')) movable(el); return true; },
+      /**
+       * Adds a plugin control; false when the toolbar is hidden. Selects and other settings go into the Layers panel under a
+       * caption (el.title), so the toolbar keeps only what readers use most; where = 'toolbar' puts it in the toolbar
+       * (it moves into the panel on phones).
+       */
+      addControl(el, where = 'panel') {
+        const st = $('.fac-status'), more = $('.fac-more');
+        if (!st) return false;
+        if (where === 'toolbar' || !more) { st.before(el); if (more) movable(el); return true; }
+        const field = document.createElement('label');
+        field.className = 'fac-field';
+        field.innerHTML = `<span>${esc(el.title || '')}</span>`;
+        field.appendChild(el);
+        more.appendChild(field);
+        return true;
+      },
       note(text) { notes.push(text); },
       util: { etTime, dayOf, sessionOf, floorIndex, esc, num, big, RES_SECONDS },
     };

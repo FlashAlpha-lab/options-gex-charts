@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 — 2026-11-16
+
+- The brand logo sits at the right end of the toolbar.
+- Plugin settings (`ctx.addControl(el)`) go into the Layers panel as captioned fields; `addControl(el, 'toolbar')` keeps one in the toolbar.
+- Select lists use the theme colours.
+
 ## 0.3.2 — 2026-11-16
 
 - More than 8 symbols show as one select instead of a strip of buttons.
