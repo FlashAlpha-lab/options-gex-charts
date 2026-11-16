@@ -174,6 +174,7 @@ For all of them, see the [live demo](https://flashalpha-lab.github.io/options-ge
 | `background` | Per theme | Background color. You can also set the CSS variable `--fac-bg`. |
 | `upgradeUrl` | FlashAlpha pricing | Where locked layers and the Upgrade box link. |
 | `debug` | `false` | Shows load status in the toolbar. |
+| `note` | Model-estimate disclaimer | A line under the chart next to the credit. `''` hides it. |
 | `brand` | None | `{ logo, href, name }`: shows your logo, linked to `href`, under the chart instead of the TradingView logo on the chart, next to a "Charts by TradingView" link. |
 | `lightweightCharts` | `window.LightweightCharts` | The Lightweight Charts module, if you import it instead of loading the script. |
 

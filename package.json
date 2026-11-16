@@ -1,6 +1,6 @@
 {
   "name": "options-gex-charts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Embeddable candlestick chart with options gamma exposure (GEX) levels: call wall, put wall, gamma flip, max pain. Built on TradingView lightweight-charts, data from the FlashAlpha API.",
   "main": "src/flashalpha-chart-core.js",
   "browser": "src/flashalpha-chart-core.js",

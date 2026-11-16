@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 — 2026-11-16
+
+- `note`: a line under the chart saying the levels are model estimates (default on; `''` hides it).
+- The Upgrade box says what the plan adds.
+
 ## 0.3.0 — 2026-11-13
 
 - Embed keys: `FlashAlphaChart.setLicenseKey('fa_pk_…')` or `data-key` on the embed `<script>` tag; a console warning when

@@ -20,6 +20,8 @@
  * not polled again. Below 560 px wide the toolbar and the legend are compact (one line until the crosshair is on the chart).
  * options.brand {logo, href, name}: the logo (a link to href) under the chart instead of the TradingView logo on the chart,
  * next to a "Charts by TradingView" text link (the Lightweight Charts license asks for one).
+ * options.note: a line under the chart next to the credit (default: the levels are model estimates, not dealer positions;
+ * '' hides it). The Upgrade box names the plan and what it adds.
  * options.theme 'dark' (default), 'light' or 'auto' (follows the reader's prefers-color-scheme); options.background overrides
  * the background colour. options.debug shows load status in the toolbar.
  * Keys and plans: options.apiKey, or FlashAlphaChart.setLicenseKey(key) once for every chart on the page. On a public page use
@@ -78,6 +80,15 @@
   const PLAN_NAMES = { free: 'Free', basic: 'Basic', growth: 'Growth', alpha: 'Alpha', enterprise: 'Enterprise' };
   const CORE_PLANS = { levels: 'basic', maxpain: 'basic' };
   const UPGRADE_URL = 'https://flashalpha.com/pricing';
+  /** One line per plan for the Upgrade box: what the reader gets. */
+  const PLAN_PITCH = {
+    basic: 'See where dealers hedge: call wall, put wall, gamma flip, max pain.',
+    growth: 'Strike heatmap, GEX profile, replay, 0DTE and hedging flow.',
+    alpha: 'Levels from live open interest, updated through the session.',
+    enterprise: 'Everything, for your team and your site.',
+  };
+  /** Shown under the chart (options.note): what the levels are. */
+  const NOTE = 'GEX levels are model estimates from open interest, not observed dealer positions. Not financial advice.';
   /** API error codes in words for the page's readers (the code stays in the 'flashalpha:nodata' event). */
   const ERRORS = {
     api_key_required: 'Add your FlashAlpha key to show this chart.',
@@ -173,7 +184,10 @@
 .fac-credit .fac-brand { display: flex; align-items: center; gap: 5px; color: var(--fac-text, #d6d9e0); font: 600 12px/1 system-ui, sans-serif;
   opacity: 0.8; }
 .fac-credit .fac-brand:hover { opacity: 1; text-decoration: none; }
-.fac-brand img { height: 16px; width: auto; }`;
+.fac-brand img { height: 16px; width: auto; }
+.fac-note { flex: 1; min-width: 0; text-align: center; color: var(--fac-muted, #8a909c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fac-upsell .pitch { color: var(--fac-muted, #8a909c); max-width: 260px; }
+.fac-narrow .fac-upsell .pitch { display: none; }`;
 
   function injectCss() {
     if (document.getElementById('fac-css')) return;
@@ -262,7 +276,7 @@
     const o = Object.assign({
       symbol: null, resolution: '5m', days: null, session: 'rth', layers: [...DEFAULT_LAYERS, ...pluginDefaults],
       controls: true, symbolButtons: true, exposure: true, source: null, baseUrl: '', apiKey: null, refresh: 60, background: null,
-      keyLevels: true, brand: null, theme: 'dark', upgradeUrl: UPGRADE_URL, debug: false,
+      keyLevels: true, brand: null, theme: 'dark', upgradeUrl: UPGRADE_URL, debug: false, note: NOTE,
     }, options || {});
     if (!o.apiKey) o.apiKey = licenseKey;
     if (!o.source) warnSecretKey(o.apiKey);
@@ -297,7 +311,7 @@
       <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
         <div class="fac-upsell" hidden></div></div>
       ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
-      ${o.brand ? `<div class="fac-credit"><a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a><a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
+      ${o.brand ? `<div class="fac-credit"><a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>${o.note && o.exposure ? `<span class="fac-note" title="${esc(o.note)}">${esc(o.note)}</span>` : ''}<a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
     container.appendChild(root);
     const $ = sel => root.querySelector(sel);
     const status = text => { const s = $('.fac-status'); if (s) s.textContent = o.debug ? text : ''; };
@@ -469,6 +483,7 @@
       const need = wanted.map(k => layerPlan[k]).sort((a, b) => planRank(a) - planRank(b))[0];
       const names = layerList.filter(([k]) => wanted.includes(k) && layerPlan[k] === need).map(([, l]) => l);
       box.innerHTML = `<span>🔒 ${esc(names.slice(0, 2).join(', '))}${names.length > 2 ? ` +${names.length - 2}` : ''}</span>`
+        + (PLAN_PITCH[need] ? `<span class="pitch">${esc(PLAN_PITCH[need])}</span>` : '')
         + `<span class="plan">${esc(PLAN_NAMES[need] || need)}</span><a href="${esc(upgradeHref(wanted[0]))}" target="_blank" rel="noopener">Upgrade</a>`;
       box.hidden = false;
     }
