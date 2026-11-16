@@ -18,8 +18,8 @@
  * When there is nothing to draw (unknown symbol, no bars, the API unreachable) a message covers the chart and the container
  * gets a bubbling 'flashalpha:nodata' CustomEvent, detail {symbol, error}, e.g. to hide the section. An unknown symbol is
  * not polled again. Below 560 px wide the toolbar and the legend are compact (one line until the crosshair is on the chart).
- * options.brand {logo, href, name}: the logo (a link to href) under the chart instead of the TradingView logo on the chart,
- * next to a "Charts by TradingView" text link (the Lightweight Charts license asks for one).
+ * options.brand {logo, href, name}: the logo (a link to href) at the bottom left of the price pane instead of the TradingView
+ * logo, and a "Charts by TradingView" text link under the chart (the Lightweight Charts license asks for one).
  * options.note: a line under the chart next to the credit (default: the levels are model estimates, not dealer positions;
  * '' hides it). The Upgrade box names the plan and what it adds.
  * options.theme 'dark' (default), 'light' or 'auto' (follows the reader's prefers-color-scheme); options.background overrides
@@ -183,11 +183,11 @@
 .fac-credit { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 10px 4px; font-size: 10px; }
 .fac-credit a { color: var(--fac-muted, #8a909c); text-decoration: none; }
 .fac-credit a:hover { text-decoration: underline; }
-.fac-bar .fac-brand { display: flex; align-items: center; gap: 6px; margin-left: 4px; color: var(--fac-text, #d6d9e0);
-  font: 600 13px/1 system-ui, sans-serif; text-decoration: none; opacity: 0.9; }
-.fac-bar .fac-brand:hover { opacity: 1; }
-.fac-bar .fac-brand img { height: 18px; }
-.fac-narrow .fac-bar .fac-brand span { display: none; }
+.fac-body > .fac-brand { position: absolute; left: 10px; bottom: 34px; z-index: 3; display: flex; align-items: center; gap: 5px;
+  color: var(--fac-text, #d6d9e0); font: 600 12px/1 system-ui, sans-serif; text-decoration: none; opacity: 0.55; }
+.fac-body > .fac-brand:hover { opacity: 1; }
+.fac-body > .fac-brand img { height: 16px; }
+.fac-narrow .fac-body > .fac-brand span { display: none; }
 .fac select, .fac select option, .fac select optgroup { background-color: var(--fac-bg, #0f1115); color: var(--fac-text, #d6d9e0); }
 .fac-panel .fac-field { display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 2px 6px; color: var(--fac-muted, #8a909c); font-size: 11px; cursor: default; white-space: normal; }
 .fac-panel .fac-field:hover { background: none; }
@@ -313,7 +313,7 @@
       return u.toString();
     };
 
-    // The brand logo sits at the right end of the toolbar (under the chart when the toolbar is hidden).
+    // The brand logo sits at the bottom left of the price pane, where lightweight-charts puts the TradingView logo.
     const brandLink = o.brand ? `<a class="fac-brand" href="${esc(o.brand.href)}" target="_blank" rel="noopener" title="${esc(o.brand.name)}"><img src="${esc(o.brand.logo)}" alt="">${o.brand.name ? `<span>${esc(o.brand.name)}</span>` : ''}</a>` : '';
     const root = document.createElement('div');
     root.className = 'fac';
@@ -321,11 +321,11 @@
         ${o.symbolButtons ? '<div class="fac-group" data-g="symbols"></div>' : ''}
         <div class="fac-group" data-g="res"></div><div class="fac-group" data-g="range"></div><div class="fac-group" data-g="session"></div>
         ${o.exposure ? '<div class="fac-menu"><button type="button">Layers ▾</button><div class="fac-panel"><div class="fac-layers"></div><div class="fac-more"></div></div></div>' : ''}
-        <span class="fac-status"></span>${brandLink}</div>` : ''}
+        <span class="fac-status"></span></div>` : ''}
       <div class="fac-body"><div class="fac-canvas"></div><div class="fac-legend"></div><div class="fac-empty"></div>
-        <div class="fac-upsell" hidden></div></div>
+        <div class="fac-upsell" hidden></div>${brandLink}</div>
       ${o.keyLevels && o.exposure ? '<div class="fac-keys"></div>' : ''}
-      ${o.brand ? `<div class="fac-credit">${o.controls ? '' : brandLink}${o.note && o.exposure ? `<span class="fac-note" title="${esc(o.note)}">${esc(o.note)}</span>` : ''}<a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
+      ${o.brand ? `<div class="fac-credit"><span></span>${o.note && o.exposure ? `<span class="fac-note" title="${esc(o.note)}">${esc(o.note)}</span>` : ''}<a href="https://www.tradingview.com/" target="_blank" rel="noopener">Charts by TradingView</a></div>` : ''}`;
     container.appendChild(root);
     const $ = sel => root.querySelector(sel);
     const status = text => { const s = $('.fac-status'); if (s) s.textContent = o.debug ? text : ''; };
@@ -417,9 +417,14 @@
     call('ready');
     // Plugin panes under the price take a fifth of the chart each; re-applied on every resize because the container may
     // still be 0 px tall when a pane is added.
+    const brandEl = $('.fac-body > .fac-brand');
     const sizePanes = () => {
       const panes = chart.panes(), h = $('.fac-body').clientHeight;
       if (h > 0) for (let i = 1; i < panes.length; i++) panes[i].setHeight(Math.max(60, Math.round(h * 0.2)));
+      if (brandEl) requestAnimationFrame(() => {               // bottom left of the price pane, above the volume
+        const ph = chart.panes()[0].getHeight();
+        if (ph > 0) { brandEl.style.top = Math.max(0, ph - 26) + 'px'; brandEl.style.bottom = 'auto'; }
+      });
     };
     // Phones: resolutions, ranges and Layers in the toolbar; the session and the plugins' controls move into the Layers panel
     // ("more"); a one-line legend; level labels on the price axis without their titles.

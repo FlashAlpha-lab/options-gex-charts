@@ -2,7 +2,7 @@
 
 ## 0.3.3 — 2026-11-16
 
-- The brand logo sits at the right end of the toolbar.
+- The brand logo sits at the bottom left of the price pane, where the TradingView logo was.
 - Plugin settings (`ctx.addControl(el)`) go into the Layers panel as captioned fields; `addControl(el, 'toolbar')` keeps one in the toolbar.
 - Select lists use the theme colours.
 
