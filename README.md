@@ -1,5 +1,7 @@
 # Options GEX Charts: gamma exposure levels on a JavaScript candlestick chart
 
+> **The newest version of this chart is [TradingView GEX by FlashAlpha](https://github.com/FlashAlpha-lab/tradingview-gex-flashalpha)**: the same GEX indicators on TradingView Lightweight Charts 5.3, a one-line website embed and a [live demo](https://flashalpha-lab.github.io/tradingview-gex-flashalpha/).
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Built on Lightweight Charts 5](https://img.shields.io/badge/Lightweight%20Charts-5.0-26a69a.svg)](https://github.com/tradingview/lightweight-charts)
 
@@ -325,4 +327,5 @@ under the chart instead. Keep that link if you change the chart's markup.
 - [flashalpha-js](https://github.com/FlashAlpha-lab/flashalpha-js): JavaScript and TypeScript SDK.
 - [flashalpha-python](https://github.com/FlashAlpha-lab/flashalpha-python): Python SDK.
 - [gex-explained](https://github.com/FlashAlpha-lab/gex-explained): the theory and math behind GEX.
+- [TradingView GEX by FlashAlpha](https://github.com/FlashAlpha-lab/tradingview-gex-flashalpha): the newest version of this chart.
 - [awesome-options-analytics](https://github.com/FlashAlpha-lab/awesome-options-analytics): a list of options analytics resources.
